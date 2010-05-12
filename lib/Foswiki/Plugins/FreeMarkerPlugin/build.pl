@@ -11,7 +11,7 @@ BEGIN {
 use Foswiki::Contrib::Build;
 
 # Create the build object
-$build = new Foswiki::Plugins::Build('FreeMarkerPlugin');
+$build = new Foswiki::Contrib::Build('FreeMarkerPlugin');
 
 # Build the target on the command line, or the default target
 $build->build( $build->{target} );
