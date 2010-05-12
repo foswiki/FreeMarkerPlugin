@@ -1,0 +1,1567 @@
+# To create FreeMarkerParser.pm, compile with:
+# yapp -s -m Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser FreeMarkerGrammar.yp && patch FreeMarkerParser.pm FreeMarkerParser.pm.patch
+#
+# Check grammar:
+# yapp -v FreeMarkerGrammar.yp
+
+%token DATA_KEY VAR
+
+# note: the order of operators is important!
+# the lower, the more precedence
+
+%left        '->'
+%nonassoc    '++' '--'
+%right       '**'
+%right       '!' '~' '\\'
+%left   	NEG POS DOT
+%left        '=~' '!~'
+%left        '+' '-'
+%right       '.'
+%left        '*' '/' '%'
+%left        '<<' '>>'
+%nonassoc    '<' '>' '<=' '>=' 'gte' 'lte' 'lt' 'gt'
+%nonassoc    '==' '!=' '<=>'
+%left        '&'
+%left        '|' '^'
+%left        '&&'
+%left        '||'
+%nonassoc    '..'
+%right       '?:'
+%nonassoc    '?'
+%right       '=' '+=' '-=' '*='
+%left        ',' '=>'
+%left		 '[' ']'
+%right       'not'
+%left        'and'
+%left        'or' 'xor'
+%left        'true' 'false'
+%right	     'as'
+
+%%
+content:				content_item
+						|
+						content_item content
+							{
+								$_[1] = '' if !defined $_[1];
+								$_[2] = '' if !defined $_[2];
+								return "$_[1]$_[2]";
+							}
+						;
+
+content_item:			tag
+						|
+						variable
+						|
+						variable_verbatim
+						|
+						string
+						;
+						
+tag:					tag_assign
+							{ '' }
+						|
+						tag_list
+						|
+						tag_if
+						|
+						tag_else
+						|
+						tmp_tag_condition
+						|
+						tag_ftl
+						|
+						tag_comment
+						;
+						
+whitespace:				'whitespace'
+						|
+						# empty
+						;
+
+value:					array_op
+							{ $_[1] }
+						|
+						exp
+						|
+						string
+							{ $_[1] }
+						;
+						
+exp:					NUMBER
+						|
+						VAR
+							{ $_[0]->{_data}->{$_[1]} }
+						|
+						VAR '=' exp
+							{ $_[0]->{_data}->{$_[1]} = $_[3] }
+						|
+						'true'
+							{ 1 }
+						|
+						'false'
+							{ 0 }
+						| exp '+' exp
+							{ $_[1] + $_[3] }
+						| exp '-' exp
+							{ $_[1] - $_[3] }
+						| exp '*' exp
+							{ $_[1] * $_[3] }
+						| exp '/' exp
+							{ $_[1] / $_[3] }
+						| '-' exp %prec NEG
+							{ -$_[2] }
+						| '+' exp %prec POS
+							{ $_[2] }
+						| exp '^' exp
+							{ $_[1] ** $_[3] }
+						# | '(' exp ')' ### handled by '(' data ')'
+						#	{ $_[2] }
+						| exp '%' exp
+							{ $_[1] % $_[3] }
+						;
+
+exp_logic:				exp_condition
+						|
+						exp_logic '&&' exp_logic
+							{ $_[1] && $_[3] }
+						|
+						exp_logic '||' exp_logic
+							{ $_[1] || $_[3] }
+						|
+						exp_logic '!' exp_logic
+							{ $_[1] && !$_[3] }
+						|
+						'!' exp_logic
+							{ !$_[2] }
+						|
+						'(' exp_logic ')'
+							{ $_[2] }
+						;
+						
+exp_logic_unexpanded:	exp_condition_unexpanded
+						|
+						exp_logic_unexpanded '&&' exp_logic_unexpanded
+							{ "$_[1] && $_[3]" }
+						|
+						exp_logic_unexpanded '||' exp_logic_unexpanded
+							{ "$_[1] || $_[3]" }
+						|
+						'!' exp_logic_unexpanded
+							{ "!$_[2]" }
+						|
+						exp_logic_unexpanded '!' exp_logic_unexpanded
+							{ "$_[1] && !$_[3]" }
+						|
+						'(' exp_logic_unexpanded ')'
+							{ "($_[2])" }
+						;
+						
+exp_condition:			exp_condition_var
+							{ $_[1] }
+						|
+						exp_condition_var '=' exp
+							{ return 0 if !defined $_[1]; $_[1] == $_[3] }
+						|
+						exp_condition_var '==' exp
+							{ return 0 if !defined $_[1]; $_[1] == $_[3] }
+						|
+						exp_condition_var '=' string
+							{ return 0 if !defined $_[1]; $_[1] eq _unquote($_[3]) }
+						|
+						exp_condition_var '==' string
+							{ return 0 if !defined $_[1]; $_[1] eq _unquote($_[3]) }
+						|
+						exp_condition_var 'gte' exp
+							{ return 0 if !defined $_[1]; $_[1] >= $_[3] }
+						|
+						exp_condition_var 'lte' exp
+							{ return 0 if !defined $_[1]; $_[1] <= $_[3] }
+						|
+						exp_condition_var 'gt' exp
+							{ return 0 if !defined $_[1]; $_[1] > $_[3] }
+						|
+						exp_condition_var 'lt' exp
+							{ return 0 if !defined $_[1]; $_[1] < $_[3] }
+						|
+						exp_condition_var '!=' exp
+							{ return 0 if !defined $_[1]; $_[1] != $_[3] }
+						|
+						exp_condition_var '!=' string
+							{ return 0 if !defined $_[1]; $_[1] ne _unquote($_[3]) }
+						|
+						exp_condition_var '??'
+							{ defined $_[1] }
+						;
+exp_condition_unexpanded:		exp_condition_var_unexpanded
+							{ "$_[1]" }
+						|
+						exp_condition_var_unexpanded '=' exp
+							{
+								if (_isNumber($_[3])) {
+									return "$_[1] == $_[3]";
+								} else {
+									return "$_[1] == '$_[3]'";
+								}
+							}
+						|
+						exp_condition_var_unexpanded '==' exp
+							{
+								if (_isNumber($_[3])) {
+									return "$_[1] == $_[3]";
+								} else {
+									return "$_[1] == '$_[3]'";
+								}
+							}
+						|
+						exp_condition_var_unexpanded '=' string
+							{ "$_[1] = $_[3]" }
+						|
+						exp_condition_var_unexpanded '==' string
+							{ "$_[1] == $_[3]" }
+						|
+						exp_condition_var_unexpanded 'gte' exp
+							{ "$_[1] gte $_[3]" }
+						|
+						exp_condition_var_unexpanded 'lte' exp
+							{ "$_[1] lte $_[3]" }
+						|
+						exp_condition_var_unexpanded 'gt' exp
+							{ "$_[1] gt $_[3]" }
+						|
+						exp_condition_var_unexpanded 'lt' exp
+							{ "$_[1] lt $_[3]" }
+						|
+						exp_condition_var_unexpanded '!=' exp
+							{
+								if (_isNumber($_[3])) {
+									return "$_[1] != $_[3]";
+								} else {
+									return "$_[1] != '$_[3]'";
+								}
+							}
+						|
+						exp_condition_var_unexpanded '!=' string
+							{ "$_[1] != $_[3]" }
+						|
+						exp_condition_var_unexpanded '??'
+							{ "$_[1]??" }
+						;
+exp_condition_var:		VAR
+							{ $_[0]->_value($_[1], 0) }
+						|
+						VAR '?' 'size'
+							{ scalar @{ $_[0]->_value($_[1]) } }
+						# other operators not defined here (they are in data)
+						|
+						NUMBER
+						;
+						
+exp_condition_var_unexpanded:		VAR
+							{ "$_[1]" }
+						|
+						VAR '?' op
+							{ "$_[1]?$_[3]" }
+						|
+						NUMBER
+							{ "$_[1]" }
+						;
+						
+op:						'word_list' | 'upper_case' | 'uncap_first' | 'substring' 
+						| 'string' | 'replace' | 'lower_case' | 'length'
+						| 'xhtml' | 'html' | 'eval' | 'capitalize' | 'cap_first'
+						|
+						'sort_by' | 'sort' | 'size' | 'seq_index_of' | 'seq_contains' | 'reverse' | 'last' | 'join' | 'first'
+						;
+						
+sequence_item:			array_str
+						|
+						exp
+						|
+						string
+						;
+sequence:				sequence_item
+						|
+						sequence_item ',' sequence
+							{
+								my $seq = '';
+								$seq .= $_[1] if defined $_[1];
+								$seq .= ', ' if defined $_[1] && defined $_[3];
+								$seq .= $_[3] if defined $_[3];
+								return $seq;
+							}
+						;						
+array_str:				'[' ']'
+							{ '' }
+						|
+						'[' sequence ']'
+							{ "[$_[2]]" }
+						|
+						'[' sequence ']' '+' array_str
+							{
+								(my $items = $_[5]) =~ s/^\[(.*)\]$/$1/;
+								return "[$_[2], $items]";
+							}
+						;
+						
+# expression - assigment
+expr_assignments:		expr_assignment
+						|
+						expr_assignment expr_assignments
+						;
+expr_assignment:		VAR '=' data
+							{ $_[0]->{_data}->{$_[1]} = $_[3] }
+						;
+						
+# string tag open
+tag_open_start:			'<#'
+							{ $_[0]->_pushContext('tagParams') }
+						;
+						
+
+# string tag close
+tag_open_end:			'>'
+							{ $_[0]->_popContext('tagParams') }
+							{ $_[0]->_pushContext('whitespace') }
+							whitespace
+							{ $_[0]->_popContext('whitespace') }
+						;
+
+tag_close_start:		'</#';
+
+tag_close_end:			'>'
+							{ $_[0]->_pushContext('whitespace') }
+							whitespace
+							{ $_[0]->_popContext('whitespace') }
+						;
+
+# the tag <#assign> can have 2 formats:
+# 1: <#assign assignment>
+# 2: <#assign variable> contents </#assign>
+tag_assign:				tag_open_start directive_assign
+							expr_assignments
+							{ $_[0]->_popContext('assignment') }
+							tag_open_end
+						|
+						tag_open_start
+							directive_assign
+							VAR
+							{ $_[0]->_popContext('assignment') }
+							tag_open_end 
+							{ $_[0]->_pushContext( 'assign' ); }
+							content
+							tag_close_start
+							directive_assign_end
+							tag_close_end
+							{
+								$_[0]->{_data}->{_unquote($_[3])} = $_[7];
+								$_[0]->_popContext( 'assign' );
+							}
+						;
+directive_assign:		'assign'
+							{ $_[0]->_pushContext('assignment') }
+						;
+directive_assign_end:	'assign';
+
+tag_list:				tag_open_start
+							'list'
+							{ $_[0]->_pushContext('listParams') }
+							data
+							'as'
+							{ $_[0]->_popContext('listParams') }
+							string # delay parsing of list contents
+							tag_open_end
+							{ $_[0]->_pushContext( 'list' ) }
+							content
+							tag_close_start
+							'list'
+							tag_close_end
+							{
+								$_[0]->_popContext( 'list' );
+								my $key = $_[7];
+								my $format = $_[10];
+								my $result = $_[0]->_renderList( $key, $_[4], $format );
+								
+								return $result;
+							}
+							;
+
+tag_if:						tag_open_start
+							'if'
+							{
+								$_[0]->{_workingData}->{ifLevel}++;
+								$_[0]->_pushContext('condition');
+							}
+							condition_unexpanded
+							{
+								$_[0]->_popContext('condition');
+							}
+							tag_open_end
+							content
+							tag_close_start
+							'if'
+							tag_close_end
+							{
+								$_[0]->{_workingData}->{ifLevel}--;
+								$_[7] =~ s/[[:space:]]+$//s;
+								my $block = "<#_if_ $_[4]>$_[7]";
+								if ( $_[0]->{_workingData}->{ifLevel} == 0 ) {
+									# to prevent parsing of nested if blocks first, first parse level 0, and after that nested if blocks
+									return $_[0]->_parseIfBlock( $block );
+								} else {
+									my $ifBlock = '<#if ' . $_[4] . '>' . $_[7] . '</#if>';
+									
+									push (@{$_[0]->{_workingData}->{ifBlocks}}, $ifBlock); 
+									my $ifBlockId = scalar @{$_[0]->{_workingData}->{ifBlocks}} - 1;
+									return '___ifblock' . $ifBlockId . '___';
+								}
+							}
+						;
+						
+tmp_tag_condition:		tag_open_start
+							'_if_'
+							{ $_[0]->_pushContext('condition') }
+							condition
+							{ $_[0]->_popContext('condition') }
+							tag_open_end
+							{ return $_[4] == 1 ? 1 : 0; }
+						;
+						
+condition:				exp_logic;
+
+condition_unexpanded:	exp_logic_unexpanded;
+
+tag_ftl:				tag_open_start
+							'ftl'
+							{ $_[0]->_pushContext('assignment') }
+							expr_ftl_assignments
+							{ $_[0]->_popContext('assignment') }
+							tag_open_end
+							{ '' }
+						;
+expr_ftl_assignments:	expr_ftl_assignment
+						|
+						expr_ftl_assignment expr_ftl_assignments
+						;
+expr_ftl_assignment:	VAR '=' data
+							{ $_[0]->{_data}->{_ftlData}->{$_[1]} = $_[3] }
+						;
+						
+tag_comment:			tag_open_start
+							'--'
+							{ $_[0]->_pushContext( 'comment' ) }
+							string
+							'--'
+							tag_close_end
+							{
+								$_[0]->_popContext( 'comment' );
+								$_[0]->_popContext('tagParams');
+								return '';
+							}
+						;
+
+variable:				'${'
+							{ $_[0]->_pushContext('variableParams') }
+							data
+							'}'
+							{
+								$_[0]->_popContext('variableParams');
+								undef $_[0]->{_workingData}->{tmpData};
+								return $_[0]->_parse( $_[3] );
+							}
+						;
+
+data:					DATA_KEY
+							{ $_[0]->_value($_[1]) }
+						|
+						'.vars'
+							{ $_[0]->{_data} }
+						|
+						string_op
+						|
+						type_op
+						|
+						hash_op
+						|
+						array_op
+						|
+						func_op
+						|
+						exp
+						;
+						
+type_op:				# data access
+						data '.' DATA_KEY
+							{ $_[0]->_value($_[3]) }
+						|
+						'(' data ')'
+							{ $_[2] }
+						|
+						# array operators
+						data '+' data
+							{
+								my @list = ( @{$_[1]}, @{$_[3]} );
+								return \@list;
+							}
+						|
+						data '[' ']'
+							{ undef }
+						|
+						data '[' exp ']'							
+							{
+								if ( $_[0]->_context() eq 'listParams' ) {
+									my $value = $_[1]->[$_[3]];
+									my @list = ($value);
+									return \@list;
+								} else {
+									my $value = $_[1][$_[3]];
+									$_[0]->{_workingData}->{tmpData} = $value;
+									return $value;
+								}
+							}
+						|
+						data '[' array_pos '..' array_pos ']'
+							{
+								my @list;
+								if ( $_[3] > $_[5] ) {
+									@list = @{$_[1]}[$_[5]..$_[3]];
+									@list = reverse(@list);
+								} else {
+									@list = @{$_[1]}[$_[3]..$_[5]];
+								}
+								return \@list;
+							}
+						|
+						data '[' array_pos '..' ']'
+							{
+								my $maxlength = scalar @{$_[1]} - 1;
+								my @list = @{$_[1]}[$_[3]..$maxlength];
+								return \@list;
+							}
+						|
+						data '[' '..' array_pos ']'
+							{
+								my @list = @{$_[1]}[0..$_[4]];
+								return \@list;
+							}
+						|
+						data '[' string ']'
+							{
+								my $d = $_[0]->{_workingData}->{tmpData};
+								$d = $_[0]->{_data} if !defined $d;
+								my $value = $d->{ _unquote( $_[3] ) };
+								$_[0]->{_workingData}->{tmpData} = $value;
+								my @list = ($value);
+								return \@list;
+							}
+						|
+						data '[' DATA_KEY ']'
+							{
+								my $d = $_[0]->{_workingData}->{tmpData};
+								$d = $_[0]->{_data} if !defined $d;
+								my $value = $d->{ _unquote( $_[3] ) };
+								$_[0]->{_workingData}->{tmpData} = $value;
+								return $value;
+							}
+						|
+						data '?' 'join' '(' string ')'
+							{ join ( _unquote($_[5]), @{$_[1]} ) }
+						|
+						data '?' 'sort'
+							{
+								my $sorted = _sort( $_[1] );
+								return $sorted;
+							}
+						|
+						data '?' 'size'
+							{ scalar @{$_[1]} }
+						|
+						data '?' 'sort_by' '(' value ')'
+							{
+								my $key = _unquote($_[5]);								
+								my $isStringSort = 1;
+								for (@{$_[1]}) {
+									if ( _isNumber($_->{$key}) ) {
+										$isStringSort = 0;
+										last;
+									}
+								}
+								my @sorted;
+								if ($isStringSort) {
+									@sorted = sort { lc $$a{$key} cmp lc $$b{$key} } @{$_[1]};
+								} else {
+									@sorted = sort { $$a{$key} <=> $$b{$key} } @{$_[1]};
+								}
+								return \@sorted;
+							}
+						|
+						data '?' 'seq_index_of' '(' value ')'
+							{
+								# differentiate between numbers and strings
+								# this is not fast
+								$_[0]->{_workingData}->{$_[1]}->{'seqData'} ||=
+								_arrayAsHash($_[1], 1);
+    							my $index =  $_[0]->{_workingData}->{$_[1]}->{'seqData'}->{ $_[5] };
+    							return -1 if !defined $index;
+    							return $index;
+							}
+						|
+						data '?' 'seq_contains' '(' value ')'
+							{
+								# differentiate between numbers and strings
+								# this is not fast
+								$_[0]->{_workingData}->{$_[1]}->{'seqData'} ||=
+								_arrayAsHash($_[1], 1);
+    							return 1 if defined $_[0]->{_workingData}->{$_[1]}->{'seqData'}->{ $_[5] };
+    							return 0;
+							}
+						|
+						data '?' 'reverse'
+							{
+								my @reversed = reverse @{$_[1]};
+								return \@reversed;
+							}
+						|
+						data '?' 'last'
+							{ @{$_[1]}[-1] }
+						|
+						data '?' 'first'
+							{ @{$_[1]}[0] }
+						|
+						# string operations
+						data '?' 'cap_first'
+							{ _capfirst( $_[1] ) }
+						|
+						data '?' 'capitalize'
+							{ _capitalize( $_[1] ) }
+						|
+						data '?' 'eval'
+							{ $_[0]->_parse('${' . $_[1] . '}') }
+						|
+						data '?' 'html'
+							{ _html($_[1]) }
+						|
+						data '?' 'xhtml'
+							{ _xhtml($_[1]) }
+						|
+						data '?' 'length'
+							{ length( $_[1] ) }
+						|
+						data '?' 'lower_case'
+							{ lc $_[1] }
+						|
+						data '?' 'replace' '(' string ',' string ')'
+							{ _replace( $_[1], _unquote($_[5]), _unquote($_[7]) ) }
+						|
+						data '?' 'string'
+							{ $_[1] }
+						|
+						data '?' 'string' '(' string ',' string ')'
+							{ $_[1] ? _unquote($_[5]) : _unquote($_[7]) }
+						|
+						data '?' 'substring' '(' NUMBER ')'
+							{ _substring( $_[1], $_[5] ) }
+						|
+						data '?' 'substring' '(' NUMBER ',' NUMBER ')'
+							{ _substring( $_[1], $_[5], $_[7] ) }
+						|
+						data '?' 'uncap_first'
+							{ _uncapfirst( $_[1] ) }
+						|
+						data '?' 'upper_case'
+							{ uc $_[1] }
+						|
+						data '?' 'word_list'
+							{
+								my @list = _wordlist( $_[1] );
+								return \@list;
+							}
+						|
+						data '!' data
+							{ _unquote($_[3]) }
+						;
+
+string_op:				string
+							{ _unquote( $_[1] ) }
+						|
+						string_op '+' data
+							{
+								if (defined $_[3]) {
+									return $_[1] . $_[3];
+								} else {
+									return $_[1];
+								}
+							}
+						|
+						'r' string
+							{ _protect(_unquote( $_[2] )) }
+						;
+						
+hash:					'{' hashvalues '}'
+							{ $_[2] }
+						;
+hashes:					hash_op
+							{
+								$_[0]->{_workingData}->{'hashes'} ||= ();
+								push @{$_[0]->{_workingData}->{'hashes'}}, $_[1];
+							}
+						|
+						hashes ',' hash_op
+							{	
+								$_[0]->{_workingData}->{'hashes'} ||= ();
+								push @{$_[0]->{_workingData}->{'hashes'}}, $_[3];
+							}
+						;
+hash_op:				hash
+						|
+						hash_op '+' hash
+							{
+								my %merged = (%{$_[1]}, %{$_[3]});
+								return \%merged;
+							}
+						;
+hashvalue:				string ':' value
+							{
+								my $local = {
+									_unquote($_[1]) => _unquote($_[3])
+								};
+								return $local;
+							}
+						;
+hashvalues:				hashvalue
+						|
+						hashvalues ',' hashvalue
+							{
+								my %merged = (%{$_[1]}, %{$_[3]});
+								return \%merged;
+							}
+						;
+						
+array_op:				'[' hashes ']'
+							{
+								my @list = @{$_[0]->{_workingData}->{'hashes'}};
+								undef $_[0]->{_workingData}->{'hashes'};
+								return \@list;
+							}
+						|
+						array_str
+							{ _toList($_[1]) }
+						|
+						array_pos '..' array_pos
+							{
+								my @list;
+								if ( $_[1] > $_[3] ) {
+									@list = ($_[3]..$_[1]);
+									@list = reverse(@list);
+								} else {
+									@list = ($_[1]..$_[3]);
+								}
+								return \@list;
+							}
+						|
+						'..' array_pos
+							{
+								my @list = (0..$_[2]);
+								return \@list;
+							}
+						;
+						
+array_pos:				NUMBER
+						|
+						DATA_KEY
+							{ $_[0]->_value($_[1]) }
+						;
+						
+func_op:				DATA_KEY '(' string ')'
+							{
+								my $function = $_[0]->_value($_[1]);
+								return undef if !$function;
+								my $parameters = $_[0]->_parse( $_[3] );
+								
+								my @params = ();
+								while ($parameters =~ s/(([']+)([^']*)([']+))|((["]+)([^"]*)(["]+))/push @params,_unquote($3||$5)/ge) {}
+								
+								return &$function(@params);
+							}
+						;
+%%
+
+
+use strict;
+use warnings;
+
+use Text::Balanced qw (
+  gen_delimited_pat
+);
+my $p_quotes                = gen_delimited_pat(q{'"});    # generates regex
+my $PATTERN_PRESERVE_QUOTES = qr/($p_quotes)/;
+my $p_number =
+'(?:(?i)(?:[+-]?)(?:(?=[0123456789]|[.])(?:[0123456789]*)(?:(?:[.])(?:[0123456789]{0,}))?)(?:(?:[E])(?:(?:[+-]?)(?:[0123456789]+))|))'
+  ; #created with: use Regexp::Common 'RE_ALL'; $PATTERN_NUMBER = $RE{num}{real};
+my $PATTERN_NUMBER = qr/($p_number)/;
+
+=pod
+
+Initialization of instance variables - not in sub 'new' as this is defined by the parser compiler.
+
+=cut
+
+sub _init {
+    my ( $this, $dataRef ) = @_;
+
+    $this->{_context} = undef;
+    @{ $this->{_context} } = ();
+    $this->{_data} ||= $dataRef;
+
+    # values set in template directive 'ftl'
+    $this->{_data}->{_ftlData}                     ||= {};
+    $this->{_data}->{_ftlData}->{encoding}         ||= undef;
+    $this->{_data}->{_ftlData}->{strip_whitespace} ||= 1;
+    $this->{_data}->{_ftlData}->{attributes}       ||= {};
+
+    $this->{_workingData} ||= {};
+    $this->{_workingData}->{tmpData}       ||= undef;
+    $this->{_workingData}->{ifBlocks}      ||= ();    # array with block contents
+    $this->{_workingData}->{ifLevel}       ||= 0;
+    $this->{_workingData}->{inTagBrackets} ||= 0;
+}
+
+sub _parseIfBlock {
+    my ( $this, $text ) = @_;
+
+    my @items = split( /(<#_if_|<#elseif|<#else)(.*?)>(.*?)/, $text );
+
+    # remove first item
+    splice @items, 0, 1;
+
+    my $result = '';
+    while ( scalar @items ) {
+
+        my ( $tag, $condition, $tmp, $content ) = @items[ 0, 1, 2, 3 ];
+        splice @items, 0, 4;
+
+        if ( $this->{_data}->{_ftlData}->{strip_whitespace} == 1 ) {
+            _stripWhitespaceAfterTag($content);
+            _stripWhitespaceBeforeTag($content);
+        }
+
+        my $resultCondition = 0;
+        if ( $tag eq '<#else' ) {
+            $resultCondition = 1;
+        }
+        elsif ( defined $condition ) {
+
+            # remove leading and trailing spaces
+            _trimSpaces($condition);
+
+            # create a dummy tag so we can use this same parser
+            $resultCondition = $this->_parse( "<#_if_ $condition >" );
+
+        }
+        if ($resultCondition) {
+            $content =~
+              s/___ifblock(\d+)___/$this->{_workingData}->{ifBlocks}[$1]/g;
+            $result =
+              $this->_parse( $content );
+
+            last;
+        }
+    }
+
+    # remove all if blocks
+    $this->{_workingData}->{ifBlocks} = ()
+      if $this->{_workingData}->{ifLevel} == 0;
+
+    return $result;
+}
+
+sub _value {
+    my ( $this, $key, $storeValue ) = @_;
+
+	$storeValue = 1 if !defined $storeValue;
+	
+    my $value = $this->{_data}->{$key};
+    if ( defined $value ) {
+        if ( UNIVERSAL::isa( $value, "ARRAY" ) ) {
+            $this->{_workingData}->{tmpData} = \@{$value} if $storeValue;
+            return \@{$value};
+        }
+        else {
+            $this->{_workingData}->{tmpData} = $value if $storeValue;
+            return $value;
+        }
+    }
+    my $d = $this->{_workingData}->{tmpData};
+    $d                              = $this->{_data} if !defined $d;
+    
+    $value                          = $d->{$key};
+    $this->{_workingData}->{tmpData} = $value if $storeValue;
+    return $value;
+}
+
+=pod
+
+Protects string from expansion: adds '<fmg_nop>' string before '{'.
+
+=cut
+
+sub _protect {
+    my ($string) = @_;
+
+    return '' if !defined $string;
+
+    $string =~ s/\{/<fmg_nop>{/go;
+    return $string;
+}
+
+=pod
+
+_renderList( $key, \@list, $format ) -> $renderedList
+
+=cut
+
+sub _renderList {
+    my ( $this, $key, $list, $format ) = @_;
+
+	print STDERR "_renderList; key=$key\n"      if ( $this->{debug} || $this->{debugLevel} );
+	print STDERR "list=" . Dumper($list) if ( $this->{debug} || $this->{debugLevel} );
+	print STDERR "format=$format\n" if ( $this->{debug} || $this->{debugLevel} );
+	
+    my ( $spaceBeforeItems, $trimmedFormat, $spaceAfterEachItem ) =
+      ( '', $format, '' );
+	
+    if ( $this->{_data}->{_ftlData}->{strip_whitespace} == 1 ) {
+        ( $spaceBeforeItems, $trimmedFormat, $spaceAfterEachItem ) =
+          $format =~ m/^(\s*?)(.*?)(\s*)$/s;
+    }
+	
+    $trimmedFormat = _unquote($trimmedFormat);
+
+    my $rendered = $spaceBeforeItems;
+
+    foreach my $item ( @{$list} ) {
+		
+        # temporarily store key value in data
+        $this->{_data}->{$key} = $item;
+
+        my $parsedItem =
+          $this->_parse( $trimmedFormat );
+
+        # remove after use
+        delete $this->{_data}->{$key};
+		
+        $rendered .= $parsedItem . $spaceAfterEachItem;
+    }
+    return $rendered;
+}
+
+sub _isInsideTag {
+    my ($this) = @_;
+
+    return scalar @{ $this->{_context} } > 0;
+}
+
+=pod
+
+Takes a string and returns an array ref.
+
+For example:
+	my $str = '["whale", "Barbara", "zeppelin", "aardvark", "beetroot"]';
+	my $listref = _toList($str);
+	
+=cut
+
+sub _toList {
+    my ($listString) = @_;
+
+    my @list = @{ eval $listString };
+    return \@list;
+}
+
+sub _pushContext {
+    my ( $this, $context ) = @_;
+
+    print STDERR "\t _pushContext:$context\n"
+      if ( $this->{debug} || $this->{debugLevel} );
+
+    push @{ $this->{_context} }, $context;
+}
+
+sub _popContext {
+    my ( $this, $context ) = @_;
+
+    print STDERR "\t _popContext:$context\n"
+      if ( $this->{debug} || $this->{debugLevel} );
+
+    if ( defined @{ $this->{_context} }[-1]
+        && @{ $this->{_context} }[ $#{ $this->{_context} } ] eq $context )
+    {
+        pop @{ $this->{_context} };
+    }
+}
+
+sub _context {
+    my ($this) = @_;
+
+    return '' if !defined $this->{_context} || !scalar @{ $this->{_context} };
+    return $this->{_context}[-1];
+}
+
+# UTIL FUNCTIONS
+
+sub _unquote {
+    my ($string) = @_;
+
+    return '' if !defined $string;
+
+    $string =~ s/^(\"|\')(.*)(\1)$/$2/s;
+    return $string;
+}
+
+# STRING OPERATIONS
+
+sub _substring {
+    my ( $str, $from, $to ) = @_;
+
+    my $length = defined $to ? $to - $from : ( length $str ) - $from;
+    return substr( $str, $from, $length );
+}
+
+sub _capfirst {
+    my ($str) = @_;
+
+    $str =~ s/^([[:space:]]*)(\w+)/$1\u$2/;
+    return $str;
+}
+
+sub _capitalize {
+    my ($str) = @_;
+
+    $str =~ s/\b(\w+)\b/\u$1/g;
+    return $str;
+}
+
+sub _html {
+    my ($str) = @_;
+
+    $str =~ s/&/&amp;/go;
+    $str =~ s/</&lt;/go;
+    $str =~ s/>/&gt;/go;
+    $str =~ s/"/&quot;/go;
+    return $str;
+}
+
+sub _xhtml {
+    my ($str) = @_;
+
+    $str =~ s/&/&amp;/go;
+    $str =~ s/</&lt;/go;
+    $str =~ s/>/&gt;/go;
+    $str =~ s/"/&quot;/go;
+    $str =~ s/'/&#39;/go;
+    return $str;
+}
+
+sub _replace {
+    my ( $str, $from, $to ) = @_;
+
+    $str =~ s/$from/$to/g;
+    return $str;
+}
+
+sub _uncapfirst {
+    my ($str) = @_;
+
+    $str =~ s/^([[:space:]]*)(\w+)/$1\l$2/;
+    return $str;
+}
+
+sub _wordlist {
+    my ($str) = @_;
+
+    $str =~ s/^[[:space:]]+//so;    # trim at start
+    return split( /[[:space:]]+/, $str );
+}
+
+# END STRING OPERATIONS
+
+# LIST OPERATIONS
+
+sub _sort {
+    my ($listRef) = @_;
+
+    my @sorted = sort { lc($a) cmp lc($b) } @{$listRef};
+    return \@sorted;
+}
+
+=pod
+
+=cut
+
+sub _interpolateEscapes {
+    my ($string) = @_;
+
+    # escaped string: \"
+    $string =~ s/\\"/"/go;
+
+    # escaped string: \'
+    $string =~ s/\\'/'/go;
+
+    # escaped newline: \n
+    $string =~ s/\\n/\n/go;
+
+    # escaped carriage return: \r
+    $string =~ s/\\r/\n/go;
+
+    # escaped tab: \t
+    $string =~ s/\\t/\t/go;
+
+    # backspace at end of string: \b
+    $string =~ s/\\b$/\b /go;
+
+    # backspace: \b
+    $string =~ s/\\b/\b/go;
+
+    # form feed: \f
+    $string =~ s/\\f/\f/go;
+
+    # less than: \l
+    $string =~ s/\\l/</go;
+
+    # greater than: \g
+    $string =~ s/\\g/>/go;
+
+    # ampersand: \a
+    $string =~ s/\\a/&/go;
+
+    # unicode - not yet supported
+    $string =~ s/\\x([0-9a-fA-FX]+)/\\x{$1}/go;
+
+    # escaped backslash: \\
+    $string =~ s/\\\\/\\/go;
+
+    return $string;
+}
+
+=pod
+
+=cut
+
+sub _trimSpaces {
+
+    #my $text = $_[0]
+
+    $_[0] =~ s/^[[:space:]]+//so;    # trim at start
+    $_[0] =~ s/[[:space:]]+$//so;    # trim at end
+}
+
+sub _isNumber {
+
+    #my ($input) = @_;
+
+    return !( $_[0] & ~$_[0] );
+}
+
+sub _isString {
+
+    # my ($input) = @_;
+
+    return ( $_[0] & ~$_[0] ) ? 1 : 0;
+}
+
+=pod
+
+_arrayAsHash( \@array, $quoteStrings ) -> \%hash
+
+Stores an array as hash with the array indices as values.
+
+If $quoteStrings is set to 1, strings are quoted to tell them apart from numbers.
+
+=cut
+
+sub _arrayAsHash {
+    my ( $list, $quoteStrings ) = @_;
+
+    my $data  = {};
+    my $index = 0;
+    if ($quoteStrings) {
+        for ( @{$list} ) {
+            $data->{ _isString($_) ? "\"$_\"" : $_ } = $index;
+            $index++;
+        }
+    }
+    else {
+        for ( @{$list} ) {
+            $data->{$_} = $index;
+            $index++;
+        }
+    }
+    return $data;
+}
+
+=pod
+
+Removes whitespace after tags.
+Only if the line contains whitespace (spaces or newline).
+Only strips the first newline.
+
+=cut
+
+sub _stripWhitespaceAfterTag {
+
+    #my $text = $_[0]
+
+    return ( $_[0] =~ s/^([ \t]+\r|[ \t]+\n|[ \t]+$|[\r\n]{1})//s );
+}
+
+sub _stripWhitespaceBeforeTag {
+
+    #my $text = $_[0]
+
+    return ( $_[0] =~ s/([ \t]+\r|[ \t]+\n|[ \t]+$|[\r\n]{1})$//s );
+}
+
+# PARSING
+
+=pod
+
+=cut
+
+sub _lexer {
+
+    #	my ( $parser ) = shift;
+
+    return ( '', undef )
+      if !defined $_[0]->YYData->{DATA} || $_[0]->YYData->{DATA} eq '';
+
+    for ( $_[0]->YYData->{DATA} ) {
+
+        my $isInsideTag = $_[0]->_isInsideTag();
+
+        print STDERR "_lexer input=$_.\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+        print STDERR "\t context=" . $_[0]->_context() . "\n"
+          if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+        print STDERR "\t is inside tag=" . $isInsideTag . "\n"
+          if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+        print STDERR "\t if level=" . $_[0]->{_workingData}->{ifLevel} . "\n"
+          if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+        print STDERR "\t inTagBrackets=" . $_[0]->{_workingData}->{inTagBrackets} . "\n"
+          if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+        if ( $_[0]->_context() eq 'whitespace' ) {
+            if ( $_[0]->{_data}->{_ftlData}->{strip_whitespace} == 1 ) {
+                _stripWhitespaceAfterTag($_);
+            }
+            return ( 'whitespace', '' );
+        }
+
+        if ( $_[0]->_context() eq 'condition' ) {
+            $_ =~ s/^[ \t]*//;
+
+            return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//);
+            return ( '==',     $1 ) if (s/^(\=\=)\s*//);
+            return ( '==',     $1 ) if (s/^(eq)\s*//);
+            return ( '&&',     $1 ) if (s/^(&&)\s*//);
+            return ( '||',     $1 ) if (s/^(\|\|)\s*//);
+            return ( 'gte',    $1 ) if (s/^(\>\=)\s*//);
+            return ( 'gte',    $1 ) if (s/^(gte)\s*//);
+            return ( 'gte',    $1 ) if (s/^(&gte;)\s*//);
+            return ( 'lte',    $1 ) if (s/^(\<\=)\s*//);
+            return ( 'lte',    $1 ) if (s/^(lte)\s*//);
+            return ( 'lte',    $1 ) if (s/^(&lte;)\s*//);
+            return ( 'gt',     $1 ) if (s/^(gt)\s*//);
+            return ( 'gt',     $1 ) if (s/^(&gt;)\s*//);
+            return ( 'lt',     $1 ) if (s/^(\<)\s*//);
+            return ( 'lt',     $1 ) if (s/^(lt)\s*//);
+            return ( 'lt',     $1 ) if (s/^(&lt;)\s*//);
+            return ( '!=',     $1 ) if (s/^(\!\=)\s*//);
+            return ( '!=',     $1 ) if (s/^(ne)\s*//);
+            return ( '!',      $1 ) if (s/^(\!)\s*//);
+            return ( '=',      $1 ) if (s/^(\=)\s*//);
+            return ( '??',     $1 ) if (s/^(\?\?)\s*//);
+            return ( '?',      $1 ) if (s/^(\?)\s*//);
+
+            if (s/^(\()\s*//) {
+
+                # make rest of condition safe: convert '>' to 'gt'
+                $_ =~ s/^(.*?)\>(.*?)\)/$1gt$2)/;
+                return ( '(', $1 );
+            }
+            return ( ')', $1 ) if (s/^(\))\s*//);
+            return ( 'string', _interpolateEscapes($1) )
+              if (s/^$PATTERN_PRESERVE_QUOTES//);
+
+            # string operations
+            return ( $1, $1 )
+              if (
+s/^\b(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\b\s*//
+              );
+
+            # sequence operations
+            return ( $1, $1 )
+              if (
+s/^\b(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\b\s*//
+              );
+
+            return ( 'VAR', $1 ) if (s/^(\w+)//);
+
+           #return ( 'gt', $1 ) if (s/^(\>)\s*//); # not supported by FreeMarker
+        }
+
+        # when inside an if block:
+        # go deeper with <#if...
+        # go up one level with </#if>
+        # ignore all other tags, these will be parsed in _parseIfBlock
+        if ( $_[0]->{_workingData}->{ifLevel} != 0 ) {
+            return ( '>',      '' ) if (s/^\s*>//);
+            return ( '<#',     '' ) if (s/^<#(if)/$1/);
+            return ( '</#',    '' ) if (s/^<\/#(if)/$1/);
+            return ( 'if',     $1 ) if s/^\b(if)\b//;
+            return ( 'string', $1 ) if (s/^(.*?)(<(#if|\/#if))/$2/s);
+        }
+        
+        # delay parsing of list contents
+        if ( $_[0]->_context() eq 'list' ) {
+            return ( '>',      '' ) if (s/^\s*>//);
+            return ( '</#',    '' ) if (s/^<\/#(list)/$1/);
+            return ( 'list',     $1 ) if s/^\b(list)\b//;
+            return ( 'string', $1 ) if (s/^(.*?)(<(#list|\/#list))/$2/s);
+        }
+
+        # tags
+
+        if ( $_[0]->{_workingData}->{inTagBrackets} ) {
+            return ( '--',     $1 ) if s/^(--)//;
+            return ( 'assign', $1 ) if s/^\b(assign)\b//;
+            return ( 'list',   $1 ) if s/^\b(list)\b//;
+            return ( 'if',     $1 ) if s/^\b(if)\b//;
+            return ( '_if_',   $1 ) if (s/^\b(_if_)\b//);
+            return ( 'ftl',    $1 ) if (s/^\b(ftl)\b//);
+        }
+
+        if ( $_[0]->{_workingData}->{inTagBrackets} && s/^\s*>// ) {
+            $_[0]->{_workingData}->{inTagBrackets} = 0;
+            return ( '>', '' );
+        }
+        if (s/^<#//) {
+            $_[0]->{_workingData}->{inTagBrackets} = 1;
+            return ( '<#', '' );
+        }
+        if (s/^<\/#//) {
+            $_[0]->{_workingData}->{inTagBrackets} = 1;
+            return ( '</#', '' );
+        }
+
+        return ( 'as', $1 ) if s/^\s*\b(as)\b//;
+
+        # variables
+        if ( !$isInsideTag ) {
+            return ( '${', '' ) if (s/^\$\{//);
+            return ( '}',  '' ) if (s/^\}//);
+        }
+
+        if (   $_[0]->_context() eq 'tagParams'
+            || $_[0]->_context() eq 'variableParams'
+            || $_[0]->_context() eq 'listParams'
+            || $_[0]->_context() eq 'assignment' )
+        {
+            $_ =~ s/^[[:space:]]*//;
+            return ( 'NUMBER', $1 )
+              if (s/^(\d+)(\.\.)\s*/$2/)
+              ;   # with array access - prevent that first dot is seen as number
+            return ( '.vars',  $1 ) if (s/^(\.vars)\s*//);
+            return ( '..',     $1 ) if (s/^(\.\.)\s*//);
+            return ( '.',      $1 ) if (s/^(\.)\s*//);
+            return ( '+',      $1 ) if (s/^(\+)\s*//);
+            return ( '-',      $1 ) if (s/^(\-)\s*//);
+            return ( '*',      $1 ) if (s/^(\*)\s*//);
+            return ( '/',      $1 ) if (s/^(\/)\s*//);
+            return ( '%',      $1 ) if (s/^(%)\s*//);
+            return ( '?',      $1 ) if (s/^(\?)\s*//);
+            return ( 'true',   $1 ) if (s/^(\"*true\"*)\s*//);
+            return ( 'false',  $1 ) if (s/^(\"*false\"*)\s*//);
+            return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//);
+
+            # string operations
+            return ( $1, $1 )
+              if (
+s/^(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\s*//
+              );
+
+            # sequence operations
+            return ( $1, $1 )
+              if (
+s/^(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\s*//
+              );
+
+            # other strings
+            return ( 'string', _interpolateEscapes($1) )
+              if (s/^$PATTERN_PRESERVE_QUOTES//);
+
+            if (   $_[0]->_context() eq 'variableParams'
+                || $_[0]->_context() eq 'listParams' )
+            {
+                return ( 'r',        $1 ) if (s/^\b(r)\b//);
+                return ( '!',        $1 ) if (s/^(!)\s*//);
+                return ( 'DATA_KEY', $1 ) if (s/^(\w+)//);
+            }
+            if ( $_[0]->_context() eq 'assignment' ) {
+                return ( 'VAR', $1 ) if (s/^(\w+)//);
+                return ( '=',   $1 ) if (s/^(\=)\s*//);
+            }
+            if ( $_[0]->_context() eq 'tagParams' ) {
+                return ( 'string', $1 ) if (s/^(\w+)//);
+            }
+            return ( '=', $1 ) if (s/^(\=)\s*//);
+            return ( '[', $1 ) if (s/^(\[)\s*//);
+            return ( ']', $1 ) if (s/^(\])\s*//);
+            return ( '(', $1 ) if (s/^(\()\s*//);
+            return ( ')', $1 ) if (s/^(\))\s*//);
+            return ( '{', $1 ) if (s/^(\{)\s*//);
+            return ( '}', $1 ) if (s/^(\})//);
+            return ( ':', $1 ) if (s/^(:)\s*//);
+            return ( ',', $1 ) if (s/^(,)\s*//);
+        }
+
+        if ($isInsideTag) {
+            return ( 'string', $1 ) if (s/^(.*?)(-->|<\#|<\/\#)/$2/s);
+        }
+        else {
+
+            return ( 'string', $1 )
+              if (s/^(.*?)(<#|\$\{)/$2/s);
+
+            return ( 'string', $1 )
+              if (s/^(.*)$//s);
+        }
+    }
+}
+
+sub _error {
+    exists $_[0]->YYData->{ERRMSG}
+      and do {
+        print STDERR $_[0]->YYData->{ERRMSG};
+        delete $_[0]->YYData->{ERRMSG};
+        return;
+      };
+    print STDERR "Syntax error\n";
+}
+
+sub _parse {
+    #my ( $this, $input ) = @_;
+
+    return '' if !defined $_[1] || $_[1] eq '';
+
+    print STDERR "_parse:input=$_[1]\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    my $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+
+    $parser->{debugLevel}    = $_[0]->{debugLevel};
+    $parser->{debug}         = $_[0]->{debug};
+    $parser->{_data}          = $_[0]->{_data};
+    $parser->{_workingData}   = $_[0]->{_workingData};
+
+    return $parser->parse( $_[1] );
+}
+
+=pod
+
+parse ($input, \%data)  -> $result
+
+Takes an input string and returns the parsed result.
+
+param $input: string
+param \%data: optional hash of variables that are used with variable substitution
+
+
+1.	Build data model from <#...></#...> directives (tags).
+	All non-scalar data is stored as references.
+2.	Invoke function calls (text substitution)
+3.	Substitute ${...} variables based on data model
+
+Lingo:
+
+With the example:
+	<#assign x>hello</#assign>
+
+assign:		directive
+x:			expression (a variable)
+hello:		tag content
+
+With the example:
+	<#assign x="10">
+
+assign:		operator
+x="10":		expression (assignment)
+
+
+Order of variable substitution is from top to bottom, as illustrated with this example:
+
+	${mouse!"No mouse."}
+	<#assign mouse="Jerry">
+	${mouse!"No mouse."}  
+
+The output will be:
+
+	No mouse.
+	Jerry  
+
+=cut
+
+sub parse {
+    #my ( $this, $input, $dataRef ) = @_;
+
+    return '' if !defined $_[1] || $_[1] eq '';
+    
+    $_[0]->_init( $_[2] );
+    $_[0]->{debug} ||= 0;
+    $_[0]->{debugLevel} ||= 0;
+
+	use Data::Dumper;
+    print STDERR "parse -- input data=" . Dumper($_[0]->{_data}) . "\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+    
+    print STDERR "parse:input=$_[1]\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    $_[0]->YYData->{DATA} = $_[1];
+    my $result = $_[0]->YYParse(
+        yylex   => \&_lexer,
+        yyerror => \&_error,
+        yydebug => $_[0]->{debugLevel}
+    );
+    $result = '' if !defined $result;
+	
+	# remove expansion protection
+    $result =~ s/<fmg_nop>//go;
+    
+    print STDERR "parse:result=$result\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    undef $_[0]->{_workingData};
+    $_[0]->{data} = $_[0]->{_data};
+    undef $_[0]->{_data};
+    return $result;
+}
+
+=pod
+
+setDebugLevel( $debug, $debugLevel )
+
+=debug=: number
+=debugLevel=: number
+
+Set debugging state and the level of debug messages.
+
+Bit Value    Outputs
+0x01         Token reading (useful for Lexer debugging)
+0x02         States information
+0x04         Driver actions (shifts, reduces, accept...)
+0x08         Parse Stack dump
+0x10         Error Recovery tracing
+
+=cut
+
+sub setDebugLevel {
+    my ( $this, $debug, $debugLevel ) = @_;
+
+	$this->{debug} = $debug;
+	$this->{debugLevel} = $debugLevel;
+}
+

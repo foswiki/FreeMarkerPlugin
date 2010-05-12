@@ -1,0 +1,231 @@
+---+ <nop>FreeMarkerPlugin example
+See %SYSTEMWEB%.FreeMarkerPlugin for usage.
+
+
+Start of the example:
+---
+%STARTFREEMARKER{colors="[red,green,blue,yellow]" selectedcolor="%URLPARAM{"color" default="none"}%"}%
+
+<#assign style>
+%ADDTOHEAD{"%TOPIC%" text="<style type=\"text/css\" media=\"all\">
+a.colorblock:link,
+a.colorblock:visited {
+  width:100px;
+  height:100px;
+  margin:0 10px 10px 0;
+  background:#f2f2f2;
+  float:left;
+  border:3px solid white;
+}
+a.colorblock:hover {
+  border:3px solid black;
+}
+a.selected:link,
+a.selected:visited {
+  border:3px solid black;
+}
+.info {
+  background:#f2f2f2;
+  padding:30px 30px 15px 30px;
+  margin:0 0 20px 0;
+}
+.info h2 {
+  margin-top:0;
+}
+"}%
+</#assign>
+
+
+<#assign pageColorSelection>
+<h2>Select your favorite color</h2>
+<div class="colorblocks">
+<#list colors as color>
+	<#if color == selectedcolor>
+		<#assign class="colorblock selected">
+	<#else>
+		<#assign class="colorblock">
+	</#if>
+<a href="%SCRIPTURL{view}%/%WEB%/%TOPIC%?color=${color}" class="${class}" style="background-color:${color};"></a>
+</#list>
+<br class="foswikiClear" />
+</div>
+</#assign>
+
+
+<#assign info_red>
+<p>You have incredible will-power and you are capable of overcoming obstacles that would stop others.
+You enjoy a pleasant and colorful environment.</p>
+<p>You are capable of bursts of high energy spontaneity, though generally more "laid back".</p>
+<p>You are energetic and interested in many areas of life.</p>
+<p>You are capable of accomplishment when consciously focused and persistent.</p>
+</#assign>
+
+
+<#assign info_green>
+<p>You are very strong-willed and determined and can accomplish much when left alone and undisturbed.
+Easy-going and original, you are capable of relaxing and enjoying the finer things in life.</p>
+<p>You have an eye for art.</p>
+<p>You work hard to improve your life and to surmount the tensions involved in the struggle.</p>
+</#assign>
+
+
+<#assign info_blue>
+<p>You enjoy a peaceful environment in which to relax and appreciate life.
+You have a refined sense of beauty.</p>
+<p>You are capable of persisting against all odds when determined to reach a goal.</p>
+<p>You are intent on establishing a personal attitudinal framework within which to accomplish your goals.</p>
+</#assign>
+
+
+<#assign info_yellow>
+<p>You are an original and powerful thinker, capable of overcoming great obstacles.
+You are easy-going and enjoy the finer things in life. You have an eye for art.</p>
+<p>You are calm and relaxed and you try not to "rock the boat".</p>
+<p>Searching for new ideas, methods and styles, you can be very productive when focused on a course of action.</p>
+</#assign>
+
+
+<#assign pageFeedback>
+<div class="info">
+<h2 style="color:${selectedcolor}">${selectedcolor?cap_first}</h2>
+<#if selectedcolor!="none">
+${("info" + "_" + selectedcolor)?eval}
+</#if>
+${close}
+</div>
+</#assign>
+
+
+<#assign close>
+<p><a href="%SCRIPTURL{view}%/%WEB%/%TOPIC%" class="foswikiButton">Close</a></p>
+</#assign>
+
+
+<#if selectedcolor="none">
+${pageColorSelection}
+<#else>
+${pageFeedback}
+${pageColorSelection}
+</#if>
+${style}
+
+
+%ENDFREEMARKER%
+
+
+%TWISTY{
+mode="div"
+showlink="View source"
+hidelink="Hide source"
+}%
+
+<verbatim>
+%STARTFREEMARKER{colors="[red,green,blue,yellow]" selectedcolor="%URLPARAM{"color" default="none"}%"}%
+
+<#assign style>
+%ADDTOHEAD{"%TOPIC%" text="<style type=\"text/css\" media=\"all\">
+a.colorblock:link,
+a.colorblock:visited {
+  width:100px;
+  height:100px;
+  margin:0 10px 10px 0;
+  background:#f2f2f2;
+  float:left;
+  border:3px solid white;
+}
+a.colorblock:hover {
+  border:3px solid black;
+}
+a.selected:link,
+a.selected:visited {
+  border:3px solid black;
+}
+.info {
+  background:#f2f2f2;
+  padding:30px 30px 15px 30px;
+  margin:0 0 20px 0;
+}
+.info h2 {
+  margin-top:0;
+}
+"}%
+</#assign>
+
+
+<#assign pageColorSelection>
+<h2>Select your favorite color</h2>
+<div class="colorblocks">
+<#list colors as color>
+	<#if color == selectedcolor>
+		<#assign class="colorblock selected">
+	<#else>
+		<#assign class="colorblock">
+	</#if>
+<a href="%SCRIPTURL{view}%/%WEB%/%TOPIC%?color=${color}" class="${class}" style="background-color:${color};"></a>
+</#list>
+</div>
+</#assign>
+
+
+<#assign info_red>
+<p>You have incredible will-power and you are capable of overcoming obstacles that would stop others.
+You enjoy a pleasant and colorful environment.</p>
+<p>You are capable of bursts of high energy spontaneity, though generally more "laid back".</p>
+<p>You are energetic and interested in many areas of life.</p>
+<p>You are capable of accomplishment when consciously focused and persistent.</p>
+</#assign>
+
+
+<#assign info_green>
+<p>You are very strong-willed and determined and can accomplish much when left alone and undisturbed.
+Easy-going and original, you are capable of relaxing and enjoying the finer things in life.</p>
+<p>You have an eye for art.</p>
+<p>You work hard to improve your life and to surmount the tensions involved in the struggle.</p>
+</#assign>
+
+
+<#assign info_blue>
+<p>You enjoy a peaceful environment in which to relax and appreciate life.
+You have a refined sense of beauty.</p>
+<p>You are capable of persisting against all odds when determined to reach a goal.</p>
+<p>You are intent on establishing a personal attitudinal framework within which to accomplish your goals.</p>
+</#assign>
+
+
+<#assign info_yellow>
+<p>You are an original and powerful thinker, capable of overcoming great obstacles.
+You are easy-going and enjoy the finer things in life. You have an eye for art.</p>
+<p>You are calm and relaxed and you try not to "rock the boat".</p>
+<p>Searching for new ideas, methods and styles, you can be very productive when focused on a course of action.</p>
+</#assign>
+
+
+<#assign pageFeedback>
+<div class="info">
+<h2 style="color:${selectedcolor}">${selectedcolor?cap_first}</h2>
+<#if selectedcolor!="none">
+${("info" + "_" + selectedcolor)?eval}
+</#if>
+${close}
+</div>
+</#assign>
+
+
+<#assign close>
+<p><a href="%SCRIPTURL{view}%/%WEB%/%TOPIC%" class="foswikiButton">Close</a></p>
+</#assign>
+
+
+<#if selectedcolor="none">
+${pageColorSelection}
+<#else>
+${pageFeedback}
+${pageColorSelection}
+</#if>
+${style}
+
+
+%ENDFREEMARKER%
+</verbatim>
+
+%ENDTWISTY%

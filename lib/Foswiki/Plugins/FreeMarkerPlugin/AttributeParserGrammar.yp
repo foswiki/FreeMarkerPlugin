@@ -1,0 +1,419 @@
+# To create FreeMarkerParser.pm, compile with:
+# yapp -s -m Foswiki::Plugins::FreeMarkerPlugin::AttributeParser AttributeParserGrammar.yp && patch AttributeParser.pm AttributeParser.pm.patch
+#
+# Check grammar:
+# yapp -v AttributeParserGrammar.yp
+
+%token DATA_KEY VAR
+
+# note: the order of operators is important!
+# the lower, the more precedence
+
+%left   	NEG POS
+%left        '=~' '!~'
+%left        '+' '-' '.'
+%left        '*' '/' '%'
+%left        '<<' '>>'
+%nonassoc    '<' '>' '<=' '>=' 'gte' 'lte' 'lt' 'gt'
+%nonassoc    '==' '!=' '<=>'
+%left        '&'
+%left        '|' '^'
+%left        '&&'
+%left        '||'
+%nonassoc    '..'
+%right       '?:'
+%nonassoc    '?'
+%right       '=' '+=' '-=' '*='
+%left        ',' '=>'
+%left		 '[' ']'
+%right       'not'
+%left        'and'
+%left        'or' 'xor'
+%left        'true' 'false'
+%right	     'as'
+
+%%
+content:				data
+							{ $_[0]->{data} = $_[1] }
+						;
+						
+data:					DATA_KEY
+							{ $_[0]->_value($_[1]) }
+						|
+						string_op
+						|
+						hash_op
+						|
+						array_op
+						|
+						exp
+						;
+						
+
+value:					array_op
+							{ $_[1] }
+						|
+						exp
+						|
+						string
+							{ $_[1] }
+						;
+						
+exp:					NUMBER
+						|
+						VAR
+							{ $_[0]->{data}->{$_[1]} }
+						|
+						VAR '=' exp
+							{ $_[0]->{data}->{$_[1]} = $_[3] }
+						|
+						'true'
+							{ 1 }
+						|
+						'false'
+							{ 0 }
+						| exp '+' exp
+							{ $_[1] + $_[3] }
+						| exp '-' exp
+							{ $_[1] - $_[3] }
+						| exp '*' exp
+							{ $_[1] * $_[3] }
+						| exp '/' exp
+							{ $_[1] / $_[3] }
+						| '-' exp %prec NEG
+							{ -$_[2] }
+						| '+' exp %prec POS
+							{ $_[2] }
+						| exp '^' exp
+							{ $_[1] ** $_[3] }
+						| '(' exp ')'
+							{ $_[2] }
+						| exp '%' exp
+							{ $_[1] % $_[3] }
+						;
+
+						
+sequence_item:			array_str
+						|
+						exp
+						|
+						string
+						;
+sequence:				sequence_item
+						|
+						sequence_item ',' sequence
+							{
+								my $seq = '';
+								$seq .= $_[1] if defined $_[1];
+								$seq .= ', ' if defined $_[1] && defined $_[3];
+								$seq .= $_[3] if defined $_[3];
+								return $seq;
+							}
+						;						
+array_str:				'[' ']'
+							{ '' }
+						|
+						'[' sequence ']'
+							{ "[$_[2]]" }
+						|
+						'[' sequence ']' '+' array_str
+							{
+								(my $items = $_[5]) =~ s/^\[(.*)\]$/$1/;
+								return "[$_[2], $items]";
+							}
+						;
+						
+string_op:				string
+							{ _unquote($_[1]) }
+						|
+						string_op string
+							{ $_[1] . _unquote($_[2]) }
+						|
+						string_op '+' string
+							{ _unquote($_[1]) . _unquote($_[3]) }
+						;
+						
+hash:					'{' hashvalues '}'
+							{ $_[2] }
+						;
+hashes:					hash_op
+							{
+								$_[0]->{workingData}->{'hashes'} ||= ();
+								push @{$_[0]->{workingData}->{'hashes'}}, $_[1];
+							}
+						|
+						hashes ',' hash_op
+							{	
+								$_[0]->{workingData}->{'hashes'} ||= ();
+								push @{$_[0]->{workingData}->{'hashes'}}, $_[3];
+							}
+						;
+hash_op:				hash
+						|
+						hash_op '+' hash
+							{
+								my %merged = (%{$_[1]}, %{$_[3]});
+								return \%merged;
+							}
+						;
+hashvalue:				string ':' value
+							{
+								my $local = {
+									_unquote($_[1]) => _unquote($_[3])
+								};
+								return $local;
+							}
+						;
+hashvalues:				hashvalue
+						|
+						hashvalues ',' hashvalue
+							{
+								my %merged = (%{$_[1]}, %{$_[3]});
+								return \%merged;
+							}
+						;
+						
+array_op:				'[' hashes ']'
+							{
+								my @list = @{$_[0]->{workingData}->{'hashes'}};
+								undef $_[0]->{workingData}->{'hashes'};
+								return \@list;
+							}
+						|
+						array_str
+							{ _toList($_[1]) }
+						|
+						array_pos '..' array_pos
+							{
+								my @list;
+								if ( $_[1] > $_[3] ) {
+									@list = ($_[3]..$_[1]);
+									@list = reverse(@list);
+								} else {
+									@list = ($_[1]..$_[3]);
+								}
+								return \@list;
+							}
+						|
+						'..' array_pos
+							{
+								my @list = (0..$_[2]);
+								return \@list;
+							}
+						;
+						
+array_pos:				NUMBER
+						|
+						DATA_KEY
+							{ $_[0]->_value($_[1]) }
+						;
+
+%%
+
+
+use strict;
+use warnings;
+
+use Text::Balanced qw (
+  gen_delimited_pat
+);
+my $p_quotes                = gen_delimited_pat(q{'"});    # generates regex
+my $PATTERN_PRESERVE_QUOTES = qr/($p_quotes)/;
+my $p_number =
+'(?:(?i)(?:[+-]?)(?:(?=[0123456789]|[.])(?:[0123456789]*)(?:(?:[.])(?:[0123456789]{0,}))?)(?:(?:[E])(?:(?:[+-]?)(?:[0123456789]+))|))'
+  ; #created with: use Regexp::Common 'RE_ALL'; $PATTERN_NUMBER = $RE{num}{real};
+my $PATTERN_NUMBER = qr/($p_number)/;
+
+sub _value {
+    my ( $this, $key ) = @_;
+
+    my $value = $this->{data}->{$key};
+    if ( defined $value ) {
+        if ( UNIVERSAL::isa( $value, "ARRAY" ) ) {
+            $this->{workingData}->{tmpData} = \@{$value};
+            return \@{$value};
+        }
+        else {
+            $this->{workingData}->{tmpData} = $value;
+            return $value;
+        }
+    }
+    my $d = $this->{workingData}->{tmpData};
+    $d                              = $this->{data} if !defined $d;
+    $value                          = $d->{$key};
+    $this->{workingData}->{tmpData} = $value;
+    return $value;
+}
+
+=pod
+
+Takes a string and returns an array ref.
+
+For example:
+	my $str = '["whale", "Barbara", "zeppelin", "aardvark", "beetroot"]';
+	my $listref = _toList($str);
+	
+=cut
+
+sub _toList {
+    my ($listString) = @_;
+	
+    my @list = @{ eval $listString };
+    return \@list;
+}
+
+# UTIL FUNCTIONS
+
+sub _unquote {
+    my ($string) = @_;
+
+    return '' if !defined $string;
+
+    $string =~ s/^(\"|\')(.*)(\1)$/$2/s;
+    return $string;
+}
+
+=pod
+
+=cut
+
+sub _interpolateEscapes {
+    my ($string) = @_;
+
+    # escaped string: \"
+    $string =~ s/\\"/"/go;
+
+    # escaped string: \'
+    $string =~ s/\\'/'/go;
+
+    # escaped newline: \n
+    $string =~ s/\\n/\n/go;
+
+    # escaped carriage return: \r
+    $string =~ s/\\r/\n/go;
+
+    # escaped tab: \t
+    $string =~ s/\\t/\t/go;
+
+    # backspace at end of string: \b
+    $string =~ s/\\b$/\b /go;
+
+    # backspace: \b
+    $string =~ s/\\b/\b/go;
+
+    # form feed: \f
+    $string =~ s/\\f/\f/go;
+
+    # less than: \l
+    $string =~ s/\\l/</go;
+
+    # greater than: \g
+    $string =~ s/\\g/>/go;
+
+    # ampersand: \a
+    $string =~ s/\\a/&/go;
+
+    # unicode - not yet supported
+    $string =~ s/\\x([0-9a-fA-FX]+)/\\x{$1}/go;
+
+    # escaped backslash: \\
+    $string =~ s/\\\\/\\/go;
+
+    return $string;
+}
+
+=pod
+
+=cut
+
+sub _lexer {
+
+    #	my ( $parser ) = shift;
+
+    return ( '', undef )
+      if !defined $_[0]->YYData->{DATA} || $_[0]->YYData->{DATA} eq '';
+
+    for ( $_[0]->YYData->{DATA} ) {
+
+        print STDERR "_lexer input=$_.\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+   
+		$_ =~ s/^\s+//;
+      
+		return ( '..',     $1 ) if (s/^(\.\.)\s*//);
+		return ( '.',      $1 ) if (s/^(\.)\s*//);
+		return ( '+',      $1 ) if (s/^(\+)\s*//);
+		return ( '-',      $1 ) if (s/^(\-)\s*//);
+		return ( '*',      $1 ) if (s/^(\*)\s*//);
+		return ( '/',      $1 ) if (s/^(\/)\s*//);
+		return ( '%',      $1 ) if (s/^(%)\s*//);
+		return ( '?',      $1 ) if (s/^(\?)\s*//);
+		return ( 'true',   $1 ) if (s/^(\"*true\"*)\s*//);
+		return ( 'false',  $1 ) if (s/^(\"*false\"*)\s*//);
+		return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//);
+
+		return ( 'string', _interpolateEscapes($1) )
+		  if (s/^$PATTERN_PRESERVE_QUOTES//);
+
+		return ( '=', $1 ) if (s/^(\=)\s*//);
+		return ( '[', $1 ) if (s/^(\[)\s*//);
+		return ( ']', $1 ) if (s/^(\])\s*//);
+		return ( '(', $1 ) if (s/^(\()\s*//);
+		return ( ')', $1 ) if (s/^(\))\s*//);
+		return ( '{', $1 ) if (s/^(\{)\s*//);
+		return ( '}', $1 ) if (s/^(\})//);
+		return ( ':', $1 ) if (s/^(:)\s*//);
+		return ( ',', $1 ) if (s/^(,)\s*//);
+		
+		return ( 'string', "'$1'" ) if (s/^(\w+)//);
+		
+		return ( 'string', $1 ) if (s/^(.*)$//s);
+    }
+}
+
+sub _error {
+    exists $_[0]->YYData->{ERRMSG}
+      and do {
+        print STDERR $_[0]->YYData->{ERRMSG};
+        delete $_[0]->YYData->{ERRMSG};
+        return;
+      };
+    print STDERR "Syntax error\n";
+}
+
+=pod
+
+parse ($input, \%vars)  -> \%data
+
+=cut
+
+sub parse {
+    #my ( $this, $input ) = @_;
+
+    return {} if !defined $_[1] || $_[1] eq '';
+    
+    $_[0]->{data} = {};
+	$_[0]->{debug} ||= 0;
+	$_[0]->{debugLevel} ||= 0;
+	
+    print STDERR "parse:input=$_[1]\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    $_[0]->YYData->{DATA} = $_[1];
+    $_[0]->YYParse(
+        yylex   => \&_lexer,
+        yyerror => \&_error,
+        yydebug => $_[0]->{debugLevel}
+    );
+
+	use Data::Dumper;
+    print STDERR "parse:data=" . Dumper($_[0]->{data}) . "\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    undef $_[0]->{workingData};
+    return $_[0]->{data};
+}
+
+sub setDebugLevel {
+    my ( $this, $debug, $debugLevel ) = @_;
+
+	$this->{debug} = $debug;
+	$this->{debugLevel} = $debugLevel;
+}
