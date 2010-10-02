@@ -4875,7 +4875,7 @@ s/^\b(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\b\s*/
             # string operations
             return ( $1, $1 )
               if (
-s/^(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\s*//
+s/^\b(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\b\s*//
               );
 
             # sequence operations
