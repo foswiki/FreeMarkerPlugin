@@ -1,5 +1,5 @@
 data/System/FreeMarkerPlugin.txt 0644 Documentation
-data/Sandbox/FreeMarkerPluginExample.txt 0644 Elaborate code example
+data/Sandbox/FreeMarkerPluginExamples.txt 0644 Code examples
 lib/Foswiki/Plugins/FreeMarkerPlugin.pm 0644 Perl code
 lib/Foswiki/Plugins/FreeMarkerPlugin/FreeMarkerParser.pm 0644 Perl code
 pub/System/FreeMarkerPlugin/basic_scheme.png 0777 Graphic

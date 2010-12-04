@@ -1,5 +1,6 @@
 # To create FreeMarkerParser.pm, compile with:
-# yapp -s -m Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser FreeMarkerGrammar.yp && patch FreeMarkerParser.pm FreeMarkerParser.pm.patch
+# yapp -s -m Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser FreeMarkerGrammar.yp && patch FreeMarkerParser.pm FreeMarkerParser.pm.patch && yapp -v FreeMarkerGrammar.yp
+
 #
 # Check grammar:
 # yapp -v FreeMarkerGrammar.yp
@@ -46,6 +47,8 @@ content:				content_item
 								$_[2] = '' if !defined $_[2];
 								return "$_[1]$_[2]";
 							}
+						|
+						# empty
 						;
 
 content_item:			tag
@@ -60,6 +63,11 @@ content_item:			tag
 tag:					tag_assign
 							{ '' }
 						|
+						tag_macro
+							{ '' }
+						|
+						tag_macro_call
+						|
 						tag_list
 						|
 						tag_if
@@ -71,6 +79,8 @@ tag:					tag_assign
 						tag_ftl
 						|
 						tag_comment
+						|
+						tag_dump
 						;
 						
 whitespace:				'whitespace'
@@ -90,10 +100,12 @@ value:					array_op
 exp:					NUMBER
 						|
 						VAR
-							{ $_[0]->{_data}->{$_[1]} }
+							{ $_[0]->data( $_[1] ) }
 						|
 						VAR '=' exp
-							{ $_[0]->{_data}->{$_[1]} = $_[3] }
+							{
+								$_[0]->_storeData( $_[1], $_[3] );
+							}
 						|
 						'true'
 							{ 1 }
@@ -120,7 +132,7 @@ exp:					NUMBER
 							{ $_[1] % $_[3] }
 						;
 
-exp_logic:				exp_condition
+exp_logic:				data
 						|
 						exp_logic '&&' exp_logic
 							{ $_[1] && $_[3] }
@@ -156,62 +168,13 @@ exp_logic_unexpanded:	exp_condition_unexpanded
 							{ "($_[2])" }
 						;
 						
-exp_condition:			exp_condition_var
-							{ $_[1] }
-						|
-						exp_condition_var '=' exp
-							{ return 0 if !defined $_[1]; $_[1] == $_[3] }
-						|
-						exp_condition_var '==' exp
-							{ return 0 if !defined $_[1]; $_[1] == $_[3] }
-						|
-						exp_condition_var '=' string
-							{ return 0 if !defined $_[1]; $_[1] eq _unquote($_[3]) }
-						|
-						exp_condition_var '==' string
-							{ return 0 if !defined $_[1]; $_[1] eq _unquote($_[3]) }
-						|
-						exp_condition_var 'gte' exp
-							{ return 0 if !defined $_[1]; $_[1] >= $_[3] }
-						|
-						exp_condition_var 'lte' exp
-							{ return 0 if !defined $_[1]; $_[1] <= $_[3] }
-						|
-						exp_condition_var 'gt' exp
-							{ return 0 if !defined $_[1]; $_[1] > $_[3] }
-						|
-						exp_condition_var 'lt' exp
-							{ return 0 if !defined $_[1]; $_[1] < $_[3] }
-						|
-						exp_condition_var '!=' exp
-							{ return 0 if !defined $_[1]; $_[1] != $_[3] }
-						|
-						exp_condition_var '!=' string
-							{ return 0 if !defined $_[1]; $_[1] ne _unquote($_[3]) }
-						|
-						exp_condition_var '??'
-							{ defined $_[1] }
-						;
 exp_condition_unexpanded:		exp_condition_var_unexpanded
-							{ "$_[1]" }
 						|
 						exp_condition_var_unexpanded '=' exp
-							{
-								if (_isNumber($_[3])) {
-									return "$_[1] == $_[3]";
-								} else {
-									return "$_[1] == '$_[3]'";
-								}
-							}
+							{ "$_[1] == $_[3]" }
 						|
 						exp_condition_var_unexpanded '==' exp
-							{
-								if (_isNumber($_[3])) {
-									return "$_[1] == $_[3]";
-								} else {
-									return "$_[1] == '$_[3]'";
-								}
-							}
+							{ "$_[1] == $_[3]" }
 						|
 						exp_condition_var_unexpanded '=' string
 							{ "$_[1] = $_[3]" }
@@ -232,13 +195,7 @@ exp_condition_unexpanded:		exp_condition_var_unexpanded
 							{ "$_[1] lt $_[3]" }
 						|
 						exp_condition_var_unexpanded '!=' exp
-							{
-								if (_isNumber($_[3])) {
-									return "$_[1] != $_[3]";
-								} else {
-									return "$_[1] != '$_[3]'";
-								}
-							}
+							{ "$_[1] != $_[3]" }
 						|
 						exp_condition_var_unexpanded '!=' string
 							{ "$_[1] != $_[3]" }
@@ -246,24 +203,14 @@ exp_condition_unexpanded:		exp_condition_var_unexpanded
 						exp_condition_var_unexpanded '??'
 							{ "$_[1]??" }
 						;
-exp_condition_var:		VAR
-							{ $_[0]->_value($_[1], 0) }
-						|
-						VAR '?' 'size'
-							{ scalar @{ $_[0]->_value($_[1]) } }
-						# other operators not defined here (they are in data)
-						|
-						NUMBER
-						;
 						
-exp_condition_var_unexpanded:		VAR
+exp_condition_var_unexpanded:		string
 							{ "$_[1]" }
 						|
-						VAR '?' op
+						string '?' op
 							{ "$_[1]?$_[3]" }
 						|
 						NUMBER
-							{ "$_[1]" }
 						;
 						
 op:						'word_list' | 'upper_case' | 'uncap_first' | 'substring' 
@@ -279,6 +226,7 @@ sequence_item:			array_str
 						|
 						string
 						;
+						
 sequence:				sequence_item
 						|
 						sequence_item ',' sequence
@@ -308,8 +256,10 @@ expr_assignments:		expr_assignment
 						|
 						expr_assignment expr_assignments
 						;
-expr_assignment:		VAR '=' data
-							{ $_[0]->{_data}->{$_[1]} = $_[3] }
+expr_assignment:		DATA_KEY '=' data
+							{
+								$_[0]->_storeData( $_[1], $_[3] );
+							}
 						;
 						
 # string tag open
@@ -317,7 +267,10 @@ tag_open_start:			'<#'
 							{ $_[0]->_pushContext('tagParams') }
 						;
 						
-
+tag_macro_open_start:	'<@'
+							{ $_[0]->_pushContext('tagParams') }
+						;
+						
 # string tag close
 tag_open_end:			'>'
 							{ $_[0]->_popContext('tagParams') }
@@ -327,6 +280,8 @@ tag_open_end:			'>'
 						;
 
 tag_close_start:		'</#';
+
+tag_macro_close_start:	'</@';
 
 tag_close_end:			'>'
 							{ $_[0]->_pushContext('whitespace') }
@@ -344,16 +299,16 @@ tag_assign:				tag_open_start directive_assign
 						|
 						tag_open_start
 							directive_assign
-							VAR
+							DATA_KEY
 							{ $_[0]->_popContext('assignment') }
 							tag_open_end 
 							{ $_[0]->_pushContext( 'assign' ); }
-							content
+							string
 							tag_close_start
 							directive_assign_end
 							tag_close_end
 							{
-								$_[0]->{_data}->{_unquote($_[3])} = $_[7];
+								$_[0]->_storeData( _unquote($_[3]), $_[7] );
 								$_[0]->_popContext( 'assign' );
 							}
 						;
@@ -362,13 +317,94 @@ directive_assign:		'assign'
 						;
 directive_assign_end:	'assign';
 
+tag_macro:				tag_open_start
+							directive_macro
+							DATA_KEY
+							macroparams
+							{ $_[0]->_popContext('assignment') }
+							tag_open_end 
+							{ $_[0]->_pushContext( 'macrocontents' ); }
+							content
+							tag_close_start
+							directive_macro_end
+							tag_close_end
+							{
+								my $content = $_[8] || '';
+								$_[0]->{_data}->{_fmMacros}->{$_[3]}->{contents} = $content;
+								
+								my @params;
+								@params = split(/ /, $_[4]) if $_[4];
+								my %paramsHash = map { $_ => 1 } @params;
+								$_[0]->{_data}->{_fmMacros}->{$_[3]}->{params} = \%paramsHash;
+																
+								$_[0]->_popContext( 'macrocontents' );
+								return '';
+							}
+						;
+						
+directive_macro:		'macro'
+							{ $_[0]->_pushContext('assignment') }
+						;
+directive_macro_end:	'macro';
+
+macroparams:			macroparam
+						|
+						macroparam macroparams
+							{
+								$_[1] = '' if !defined $_[1];
+								$_[2] = '' if !defined $_[2];
+								return "$_[1] $_[2]";
+							}
+						;
+						
+macroparam:				DATA_KEY
+						|
+						;
+					
+macro_assignments:		macro_assignment
+						|
+						macro_assignment macro_assignments
+						;
+macro_assignment:		DATA_KEY '=' data
+							{
+								print "Invalid macro parameter:$_[1]\n" if (!$_[0]->{_workingData}->{validMacroParams}->{$_[1]});
+								if (_isString($_[3])) {
+									$_[0]->_storeData( $_[1], $_[0]->_parse($_[3]) );
+								} else {
+									$_[0]->_storeData( $_[1], $_[3] );
+								}
+							}
+						|
+						;
+						
+tag_macro_call:			whitespace
+							tag_macro_open_start
+							{ $_[0]->_pushContext('assignment') }
+							DATA_KEY
+							{
+								$_[0]->{_workingData}->{validMacroParams} = $_[0]->{_data}->{_fmMacros}->{$_[4]}->{params};
+							}
+							macro_assignments
+							{ $_[0]->_popContext('assignment') }
+							'/'
+							tag_open_end
+							{
+								my $parsed = $_[0]->_parse( $_[0]->{_data}->{_fmMacros}->{$_[4]}->{contents} );
+								undef $_[0]->{_workingData}->{validMacroParams};
+								return $parsed;
+							}
+						;
+						
 tag_list:				tag_open_start
 							'list'
-							{ $_[0]->_pushContext('listParams') }
+							{
+								$_[0]->{_workingData}->{nestedLevel}++;
+								$_[0]->_pushContext('listParams');
+							}
 							data
 							'as'
 							{ $_[0]->_popContext('listParams') }
-							string # delay parsing of list contents
+							string
 							tag_open_end
 							{ $_[0]->_pushContext( 'list' ) }
 							content
@@ -377,10 +413,17 @@ tag_list:				tag_open_start
 							tag_close_end
 							{
 								$_[0]->_popContext( 'list' );
+								$_[0]->{_workingData}->{nestedLevel}--;
 								my $key = $_[7];
 								my $format = $_[10];
-								my $result = $_[0]->_renderList( $key, $_[4], $format );
-								
+								my $listData = $_[4];
+
+								my $result = '';
+#FIXME: this seems to get called with empty format
+
+								if ($format) {
+									$result = $_[0]->_renderList( $key, $listData, $format ) if $listData;
+								}
 								return $result;
 							}
 							;
@@ -391,7 +434,7 @@ tag_if:						tag_open_start
 								$_[0]->{_workingData}->{ifLevel}++;
 								$_[0]->_pushContext('condition');
 							}
-							condition_unexpanded
+							exp_logic_unexpanded
 							{
 								$_[0]->_popContext('condition');
 							}
@@ -402,33 +445,33 @@ tag_if:						tag_open_start
 							tag_close_end
 							{
 								$_[0]->{_workingData}->{ifLevel}--;
-								$_[7] =~ s/[[:space:]]+$//s;
-								my $block = "<#_if_ $_[4]>$_[7]";
+								my $content = $_[7] || '';
+								$content =~ s/[[:space:]]+$//s;
+								my $block = "<#_if_ $_[4]>$content";
 								if ( $_[0]->{_workingData}->{ifLevel} == 0 ) {
 									# to prevent parsing of nested if blocks first, first parse level 0, and after that nested if blocks
 									return $_[0]->_parseIfBlock( $block );
 								} else {
-									my $ifBlock = '<#if ' . $_[4] . '>' . $_[7] . '</#if>';
+									my $ifBlock = '<#if ' . $_[4] . '>' . $content . '</#if>';
 									
 									push (@{$_[0]->{_workingData}->{ifBlocks}}, $ifBlock); 
 									my $ifBlockId = scalar @{$_[0]->{_workingData}->{ifBlocks}} - 1;
 									return '___ifblock' . $ifBlockId . '___';
 								}
+								$_[0]->{_workingData}->{ifBlocks} = () if $_[0]->{_workingData}->{ifLevel} == 0;
 							}
 						;
 						
 tmp_tag_condition:		tag_open_start
 							'_if_'
-							{ $_[0]->_pushContext('condition') }
-							condition
-							{ $_[0]->_popContext('condition') }
+							{ $_[0]->_pushContext('evalcondition') }
+							exp_logic
+							{ $_[0]->_popContext('evalcondition') }
 							tag_open_end
-							{ return $_[4] == 1 ? 1 : 0; }
+							{
+								return $_[4] == 1 ? 1 : 0;
+							}
 						;
-						
-condition:				exp_logic;
-
-condition_unexpanded:	exp_logic_unexpanded;
 
 tag_ftl:				tag_open_start
 							'ftl'
@@ -442,7 +485,7 @@ expr_ftl_assignments:	expr_ftl_assignment
 						|
 						expr_ftl_assignment expr_ftl_assignments
 						;
-expr_ftl_assignment:	VAR '=' data
+expr_ftl_assignment:	DATA_KEY '=' data
 							{ $_[0]->{_data}->{_ftlData}->{$_[1]} = $_[3] }
 						;
 						
@@ -458,6 +501,20 @@ tag_comment:			tag_open_start
 								return '';
 							}
 						;
+						
+tag_dump:				'<#'
+							'dump'
+							{ $_[0]->_pushContext('assignment') }
+							data
+							{ $_[0]->_popContext('assignment') }
+							whitespace
+							'/'
+							'>'
+							{
+								use Data::Dumper;
+								return Dumper($_[4]);
+							}
+						;
 
 variable:				'${'
 							{ $_[0]->_pushContext('variableParams') }
@@ -471,10 +528,12 @@ variable:				'${'
 						;
 
 data:					DATA_KEY
-							{ $_[0]->_value($_[1]) }
+							{
+								$_[0]->_value($_[1])
+							}
 						|
 						'.vars'
-							{ $_[0]->{_data} }
+							{ $_[0]->data() }
 						|
 						string_op
 						|
@@ -491,16 +550,33 @@ data:					DATA_KEY
 						
 type_op:				# data access
 						data '.' DATA_KEY
-							{ $_[0]->_value($_[3]) }
+							{
+								my $d = $_[0]->{_workingData}->{tmpData};
+								$d = $_[0]->data() if !defined $d;
+								my $value;
+								if ( UNIVERSAL::isa( $d, "HASH" ) ) {
+									$value = $d->{ _unquote( $_[3] ) };
+									$_[0]->{_workingData}->{tmpData} = $value;
+								}
+								return $value;
+							}
 						|
 						'(' data ')'
 							{ $_[2] }
 						|
+						data '*' data
+							{ $_[1] * $_[3] }
+						|		
 						# array operators
 						data '+' data
 							{
-								my @list = ( @{$_[1]}, @{$_[3]} );
-								return \@list;
+								if ( UNIVERSAL::isa( $_[1], "ARRAY" ) && UNIVERSAL::isa( $_[3], "ARRAY" ) ) {
+									my @list = ( @{$_[1]}, @{$_[3]} );
+									return \@list;
+								} else {
+								    # not an array
+									return $_[1] + $_[3];
+								}
 							}
 						|
 						data '[' ']'
@@ -547,7 +623,7 @@ type_op:				# data access
 						data '[' string ']'
 							{
 								my $d = $_[0]->{_workingData}->{tmpData};
-								$d = $_[0]->{_data} if !defined $d;
+								$d = $_[0]->data() if !defined $d;
 								my $value = $d->{ _unquote( $_[3] ) };
 								$_[0]->{_workingData}->{tmpData} = $value;
 								my @list = ($value);
@@ -557,7 +633,7 @@ type_op:				# data access
 						data '[' DATA_KEY ']'
 							{
 								my $d = $_[0]->{_workingData}->{tmpData};
-								$d = $_[0]->{_data} if !defined $d;
+								$d = $_[0]->data() if !defined $d;
 								my $value = $d->{ _unquote( $_[3] ) };
 								$_[0]->{_workingData}->{tmpData} = $value;
 								return $value;
@@ -644,7 +720,7 @@ type_op:				# data access
 							{ _xhtml($_[1]) }
 						|
 						data '?' 'length'
-							{ length( $_[1] ) }
+							{ return defined $_[1] ? length( $_[1] ) : 0 }
 						|
 						data '?' 'lower_case'
 							{ lc $_[1] }
@@ -678,8 +754,44 @@ type_op:				# data access
 						|
 						data '!' data
 							{ _unquote($_[3]) }
+						|
+						data '==' data
+							{ 
+								return 0 if !defined $_[1];
+								if ($_[1] && _isString($_[3])) {
+									return $_[1] eq $_[3];
+								} else {
+									return $_[1] == $_[3];
+								}
+							}
+						|
+						data '!=' data
+							{ 
+								if (_isString($_[3])) {
+									return $_[1] ne $_[3];
+								} else {
+									return $_[1] != $_[3];
+								}
+							}
+						|
+						data '??'
+							{ 
+								return defined $_[1];
+							}
+						|
+						data 'gt' data
+							{ return 0 if !defined $_[1]; $_[1] > $_[3] }
+						|
+						data 'gte' data
+							{ return 0 if !defined $_[1]; $_[1] >= $_[3] }
+						|
+						data 'lt' data
+							{ return 0 if !defined $_[1]; $_[1] < $_[3] }
+						|
+						data 'lte' data
+							{ return 0 if !defined $_[1]; $_[1] <= $_[3] }
 						;
-
+						
 string_op:				string
 							{ _unquote( $_[1] ) }
 						|
@@ -786,6 +898,7 @@ func_op:				DATA_KEY '(' string ')'
 %%
 
 
+
 use strict;
 use warnings;
 
@@ -799,6 +912,15 @@ my $p_number =
   ; #created with: use Regexp::Common 'RE_ALL'; $PATTERN_NUMBER = $RE{num}{real};
 my $PATTERN_NUMBER = qr/($p_number)/;
 
+my $PATTERN_STRING_OP =
+qr/\b(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\b/;
+my $PATTERN_SEQUENCE_OP =
+  qr/\b(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\b/;
+
+my $recursiveLevel      = 0;
+my $MAX_RECURSIVE_LEVEL = 100;
+my $dataKeyId           = 0;
+
 =pod
 
 Initialization of instance variables - not in sub 'new' as this is defined by the parser compiler.
@@ -808,9 +930,10 @@ Initialization of instance variables - not in sub 'new' as this is defined by th
 sub _init {
     my ( $this, $dataRef ) = @_;
 
-    $this->{_context} = undef;
-    @{ $this->{_context} } = ();
+    $this->{_context} ||= undef;
+    @{ $this->{_context} } = () if !defined $this->{_context};
     $this->{_data} ||= $dataRef;
+    $this->{_data}->{_fmKeys} ||= [];
 
     # values set in template directive 'ftl'
     $this->{_data}->{_ftlData}                     ||= {};
@@ -818,15 +941,69 @@ sub _init {
     $this->{_data}->{_ftlData}->{strip_whitespace} ||= 1;
     $this->{_data}->{_ftlData}->{attributes}       ||= {};
 
-    $this->{_workingData} ||= {};
+    $this->{_workingData}                  ||= {};
     $this->{_workingData}->{tmpData}       ||= undef;
-    $this->{_workingData}->{ifBlocks}      ||= ();    # array with block contents
+    $this->{_workingData}->{ifBlocks}      ||= ();   # array with block contents
     $this->{_workingData}->{ifLevel}       ||= 0;
+    $this->{_workingData}->{nestedLevel}   ||= 0;
     $this->{_workingData}->{inTagBrackets} ||= 0;
+}
+
+sub _increaseDataScope {
+    my ($this) = @_;
+
+    push( @{ $this->{_data}->{_fmKeys} }, $dataKeyId++ );
+}
+
+sub _decreaseDataScope {
+    my ($this) = @_;
+
+    my $scopeKey = pop( @{ $this->{_data}->{_fmKeys} } );
+    delete $this->{_data}->{$scopeKey} if defined $this->{_data}->{$scopeKey};
+}
+
+sub _storeData {
+    my ( $this, $key, $value ) = @_;
+
+    my $scopeKey = $this->{_data}->{_fmKeys}[-1];
+    if ( $scopeKey == 0 ) {
+
+        # root
+        $this->{_data}->{$key} = $value;
+    }
+    else {
+        $this->{_data}->{$scopeKey}->{$key} = $value;
+    }
+}
+
+sub data {
+    my ( $this, $dataKey ) = @_;
+
+    if ( !defined $dataKey ) {
+        return $this->{_data};
+    }
+
+    my $data;
+    foreach my $key ( reverse @{ $this->{_data}->{_fmKeys} } ) {
+        $data = $this->{_data}->{$key}->{$dataKey}
+          if defined $this->{_data}->{$key};
+        last if defined $data;
+    }
+    if ( !defined $data ) {
+
+        # look in root
+        $data = $this->{_data}->{$dataKey};
+    }
+
+    return $data;
 }
 
 sub _parseIfBlock {
     my ( $this, $text ) = @_;
+
+    if ( $this->{debug} || $this->{debugLevel} ) {
+        print STDERR "_parseIfBlock; text=$text\n";
+    }
 
     my @items = split( /(<#_if_|<#elseif|<#else)(.*?)>(.*?)/, $text );
 
@@ -850,26 +1027,40 @@ sub _parseIfBlock {
         }
         elsif ( defined $condition ) {
 
+            if ( $this->{debug} || $this->{debugLevel} ) {
+                print STDERR "\t condition=$condition\n";
+            }
+
             # remove leading and trailing spaces
             _trimSpaces($condition);
 
             # create a dummy tag so we can use this same parser
-            $resultCondition = $this->_parse( "<#_if_ $condition >" );
+            # and parse the conditon - it may contain variables
+            $resultCondition = $this->_parse("<#_if_ $condition>");
 
         }
-        if ($resultCondition) {
+        if ( $this->{debug} || $this->{debugLevel} ) {
+            print STDERR "\t resultCondition=$resultCondition\n";
+        }
+
+        if ($resultCondition) {    # so we may proceed
+            if ( $this->{debug} || $this->{debugLevel} ) {
+                print STDERR "\t content=$content\n";
+            }
+
             $content =~
-              s/___ifblock(\d+)___/$this->{_workingData}->{ifBlocks}[$1]/g;
-            $result =
-              $this->_parse( $content );
+s/___ifblock(\d+)___/$this->{_workingData}->{ifBlocks}[$1] || ''/ge
+              if $content;
+
+            if ( $this->{debug} || $this->{debugLevel} ) {
+                print STDERR "\t content after=$content\n";
+            }
+
+            $result = $this->_parse($content);
 
             last;
         }
     }
-
-    # remove all if blocks
-    $this->{_workingData}->{ifBlocks} = ()
-      if $this->{_workingData}->{ifLevel} == 0;
 
     return $result;
 }
@@ -877,9 +1068,10 @@ sub _parseIfBlock {
 sub _value {
     my ( $this, $key, $storeValue ) = @_;
 
-	$storeValue = 1 if !defined $storeValue;
-	
-    my $value = $this->{_data}->{$key};
+    $storeValue = 1 if !defined $storeValue;
+
+    my $value = $this->data($key);
+
     if ( defined $value ) {
         if ( UNIVERSAL::isa( $value, "ARRAY" ) ) {
             $this->{_workingData}->{tmpData} = \@{$value} if $storeValue;
@@ -891,9 +1083,11 @@ sub _value {
         }
     }
     my $d = $this->{_workingData}->{tmpData};
-    $d                              = $this->{_data} if !defined $d;
-    
-    $value                          = $d->{$key};
+    $d = $this->data() if !defined $d;
+
+    if ( UNIVERSAL::isa( $d, "HASH" ) ) {
+        $value = $d->{$key};
+    }
     $this->{_workingData}->{tmpData} = $value if $storeValue;
     return $value;
 }
@@ -920,37 +1114,39 @@ _renderList( $key, \@list, $format ) -> $renderedList
 =cut
 
 sub _renderList {
-    my ( $this, $key, $list, $format ) = @_;
+    my ( $this, $key, $listData, $format ) = @_;
 
-	print STDERR "_renderList; key=$key\n"      if ( $this->{debug} || $this->{debugLevel} );
-	print STDERR "list=" . Dumper($list) if ( $this->{debug} || $this->{debugLevel} );
-	print STDERR "format=$format\n" if ( $this->{debug} || $this->{debugLevel} );
-	
+    return $format if $_[0]->{_workingData}->{nestedLevel} > 0;
+
+    if ( $this->{debug} || $this->{debugLevel} ) {
+        print STDERR "_renderList; key=$key\n";
+        print STDERR "nestedLevel=$_[0]->{_workingData}->{nestedLevel}\n";
+        print STDERR "listData=" . Dumper($listData);
+        print STDERR "format=$format\n";
+    }
+
     my ( $spaceBeforeItems, $trimmedFormat, $spaceAfterEachItem ) =
       ( '', $format, '' );
-	
-    if ( $this->{_data}->{_ftlData}->{strip_whitespace} == 1 ) {
+
+    if ( $format && $this->{_data}->{_ftlData}->{strip_whitespace} == 1 ) {
         ( $spaceBeforeItems, $trimmedFormat, $spaceAfterEachItem ) =
           $format =~ m/^(\s*?)(.*?)(\s*)$/s;
     }
-	
+
     $trimmedFormat = _unquote($trimmedFormat);
 
     my $rendered = $spaceBeforeItems;
 
-    foreach my $item ( @{$list} ) {
-		
-        # temporarily store key value in data
-        $this->{_data}->{$key} = $item;
+    my $counter = 0;
+    foreach my $item ( @{$listData} ) {
 
-        my $parsedItem =
-          $this->_parse( $trimmedFormat );
+        $this->_storeData( $key, $item );
+        my $parsedItem = $this->_parse($trimmedFormat);
 
-        # remove after use
-        delete $this->{_data}->{$key};
-		
         $rendered .= $parsedItem . $spaceAfterEachItem;
+        $counter++;
     }
+
     return $rendered;
 }
 
@@ -1158,13 +1354,17 @@ sub _isNumber {
 
     #my ($input) = @_;
 
-    return !( $_[0] & ~$_[0] );
+    return ( $_[0] =~ m/^$PATTERN_NUMBER/ );
 }
 
 sub _isString {
 
     # my ($input) = @_;
+    return 0 if !$_[0];
+    return 0 if ( UNIVERSAL::isa( $_[0], "ARRAY" ) );
+    return 0 if ( UNIVERSAL::isa( $_[0], "HASH" ) );
 
+    #	return 0 if _isNumber($_[0]);
     return ( $_[0] & ~$_[0] ) ? 1 : 0;
 }
 
@@ -1209,14 +1409,14 @@ Only strips the first newline.
 sub _stripWhitespaceAfterTag {
 
     #my $text = $_[0]
-
+    return if !$_[0];
     return ( $_[0] =~ s/^([ \t]+\r|[ \t]+\n|[ \t]+$|[\r\n]{1})//s );
 }
 
 sub _stripWhitespaceBeforeTag {
 
     #my $text = $_[0]
-
+    return if !$_[0];
     return ( $_[0] =~ s/([ \t]+\r|[ \t]+\n|[ \t]+$|[\r\n]{1})$//s );
 }
 
@@ -1237,14 +1437,19 @@ sub _lexer {
 
         my $isInsideTag = $_[0]->_isInsideTag();
 
-        print STDERR "_lexer input=$_.\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+        print STDERR "_lexer input=$_.\n"
+          if ( $_[0]->{debug} || $_[0]->{debugLevel} );
         print STDERR "\t context=" . $_[0]->_context() . "\n"
           if ( $_[0]->{debug} || $_[0]->{debugLevel} );
         print STDERR "\t is inside tag=" . $isInsideTag . "\n"
           if ( $_[0]->{debug} || $_[0]->{debugLevel} );
         print STDERR "\t if level=" . $_[0]->{_workingData}->{ifLevel} . "\n"
           if ( $_[0]->{debug} || $_[0]->{debugLevel} );
-        print STDERR "\t inTagBrackets=" . $_[0]->{_workingData}->{inTagBrackets} . "\n"
+        print STDERR "\t list level="
+          . $_[0]->{_workingData}->{nestedLevel} . "\n"
+          if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+        print STDERR "\t inTagBrackets="
+          . $_[0]->{_workingData}->{inTagBrackets} . "\n"
           if ( $_[0]->{debug} || $_[0]->{debugLevel} );
 
         if ( $_[0]->_context() eq 'whitespace' ) {
@@ -1254,55 +1459,61 @@ sub _lexer {
             return ( 'whitespace', '' );
         }
 
-        if ( $_[0]->_context() eq 'condition' ) {
-            $_ =~ s/^[ \t]*//;
+        if (   $_[0]->_context() eq 'condition'
+            || $_[0]->_context() eq 'evalcondition' )
+        {
+            $_ =~ s/^[ \t]*//o;
 
-            return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//);
-            return ( '==',     $1 ) if (s/^(\=\=)\s*//);
-            return ( '==',     $1 ) if (s/^(eq)\s*//);
-            return ( '&&',     $1 ) if (s/^(&&)\s*//);
-            return ( '||',     $1 ) if (s/^(\|\|)\s*//);
-            return ( 'gte',    $1 ) if (s/^(\>\=)\s*//);
-            return ( 'gte',    $1 ) if (s/^(gte)\s*//);
-            return ( 'gte',    $1 ) if (s/^(&gte;)\s*//);
-            return ( 'lte',    $1 ) if (s/^(\<\=)\s*//);
-            return ( 'lte',    $1 ) if (s/^(lte)\s*//);
-            return ( 'lte',    $1 ) if (s/^(&lte;)\s*//);
-            return ( 'gt',     $1 ) if (s/^(gt)\s*//);
-            return ( 'gt',     $1 ) if (s/^(&gt;)\s*//);
-            return ( 'lt',     $1 ) if (s/^(\<)\s*//);
-            return ( 'lt',     $1 ) if (s/^(lt)\s*//);
-            return ( 'lt',     $1 ) if (s/^(&lt;)\s*//);
-            return ( '!=',     $1 ) if (s/^(\!\=)\s*//);
-            return ( '!=',     $1 ) if (s/^(ne)\s*//);
-            return ( '!',      $1 ) if (s/^(\!)\s*//);
-            return ( '=',      $1 ) if (s/^(\=)\s*//);
-            return ( '??',     $1 ) if (s/^(\?\?)\s*//);
-            return ( '?',      $1 ) if (s/^(\?)\s*//);
-
-            if (s/^(\()\s*//) {
+            if (s/^(\()\s*//o) {
 
                 # make rest of condition safe: convert '>' to 'gt'
-                $_ =~ s/^(.*?)\>(.*?)\)/$1gt$2)/;
+                $_ =~ s/^(.*?)\>(.*?)\)/$1gt$2)/o;
                 return ( '(', $1 );
             }
-            return ( ')', $1 ) if (s/^(\))\s*//);
+            return ( ')', $1 ) if (s/^(\))\s*//o);
+
+            return ( '.',      $1 ) if (s/^(\.)\s*//o);
+            return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//o);
+            return ( '==',     $1 ) if (s/^(\=\=)\s*//o);
+            return ( '==',     $1 ) if (s/^\b(eq)\b\s*//o);
+            return ( '&&',     $1 ) if (s/^(&&)\s*//o);
+            return ( '||',     $1 ) if (s/^(\|\|)\s*//o);
+            return ( 'gte',    $1 ) if (s/^(\>\=)\s*//o);
+            return ( 'gte',    $1 ) if (s/^\b(gte)\b\s*//o);
+            return ( 'gte',    $1 ) if (s/^(&gte;)\s*//o);
+            return ( 'lte',    $1 ) if (s/^(\<\=)\s*//o);
+            return ( 'lte',    $1 ) if (s/^\b(lte)\b\s*//o);
+            return ( 'lte',    $1 ) if (s/^(&lte;)\s*//o);
+            return ( 'gt',     $1 ) if (s/^\b(gt)\b\s*//o);
+            return ( 'gt',     $1 ) if (s/^(&gt;)\s*//o);
+            return ( 'lt',     $1 ) if (s/^(\<)\s*//o);
+            return ( 'lt',     $1 ) if (s/^\b(lt)\b\s*//o);
+            return ( 'lt',     $1 ) if (s/^(&lt;)\s*//o);
+            return ( '!=',     $1 ) if (s/^(\!\=)\s*//o);
+            return ( '!=',     $1 ) if (s/^\b(ne)\b\s*//o);
+            return ( '!',      $1 ) if (s/^(\!)\s*//o);
+            return ( '==',     $1 ) if (s/^(\=)\s*//o);
+            return ( '??',     $1 ) if (s/^(\?\?)\s*//o);
+            return ( '?',      $1 ) if (s/^(\?)\s*//o);
+            return ( '[',      $1 ) if (s/^(\[)\s*//o);
+            return ( ']',      $1 ) if (s/^(\])\s*//o);
+
+            if ( $_[0]->_context() eq 'condition' ) {
+                return ( 'string', $1 ) if (s/^([\w\.\[\]\"]+)//o);
+            }
+
             return ( 'string', _interpolateEscapes($1) )
-              if (s/^$PATTERN_PRESERVE_QUOTES//);
+              if (s/^$PATTERN_PRESERVE_QUOTES//o);
 
             # string operations
             return ( $1, $1 )
-              if (
-s/^\b(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\b\s*//
-              );
+              if ( s/^$PATTERN_STRING_OP\s*//o );
 
             # sequence operations
             return ( $1, $1 )
-              if (
-s/^\b(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\b\s*//
-              );
+              if ( s/^$PATTERN_SEQUENCE_OP\s*//o );
 
-            return ( 'VAR', $1 ) if (s/^(\w+)//);
+            return ( 'DATA_KEY', $1 ) if (s/^(\w+)//);
 
            #return ( 'gt', $1 ) if (s/^(\>)\s*//); # not supported by FreeMarker
         }
@@ -1312,51 +1523,91 @@ s/^\b(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\b\s*/
         # go up one level with </#if>
         # ignore all other tags, these will be parsed in _parseIfBlock
         if ( $_[0]->{_workingData}->{ifLevel} != 0 ) {
-            return ( '>',      '' ) if (s/^\s*>//);
-            return ( '<#',     '' ) if (s/^<#(if)/$1/);
-            return ( '</#',    '' ) if (s/^<\/#(if)/$1/);
-            return ( 'if',     $1 ) if s/^\b(if)\b//;
-            return ( 'string', $1 ) if (s/^(.*?)(<(#if|\/#if))/$2/s);
+            return ( '>', '' ) if (s/^\s*>//o);
+            if (s/^<\#\b(if)\b/$1/) {
+                $_[0]->{_workingData}->{inTagBrackets} = 1;
+                return ( '<#', '' );
+            }
+            return ( '</#',    '' ) if (s/^\s*<\/\#\b(if)\b/$1/o);
+            return ( 'if',     $1 ) if s/^\b(if)\b//o;
+            return ( 'string', $1 ) if (s/^(.*?)(<(\/?\#\bif\b))/$2/so);
         }
-        
+
         # delay parsing of list contents
+        if ( $_[0]->{_workingData}->{nestedLevel} != 0 ) {
+            return ( 'string', $1 )
+              if (s/^\s*(<#\blist\b.*)(<\/\#\blist\b>)/$2/so);
+        }
+
         if ( $_[0]->_context() eq 'list' ) {
-            return ( '>',      '' ) if (s/^\s*>//);
-            return ( '</#',    '' ) if (s/^<\/#(list)/$1/);
-            return ( 'list',     $1 ) if s/^\b(list)\b//;
-            return ( 'string', $1 ) if (s/^(.*?)(<(#list|\/#list))/$2/s);
+
+            #if ( $_[0]->{_workingData}->{nestedLevel} != 0 ) {
+            return ( '>', '' ) if (s/^\s*>//o);
+            if (s/^<\#\b(list)\b/$1/o) {
+                $_[0]->{_workingData}->{inTagBrackets} = 1;
+                return ( '<#', '' );
+            }
+            return ( '</#',    '' ) if (s/^\s*<\/\#\b(list)\b/$1/o);
+            return ( 'list',   $1 ) if s/^\b(list)\b//o;
+            return ( 'string', $1 ) if (s/^(.*?)(<(\/?\#\blist\b))/$2/so);
+        }
+
+        # delay parsing of macro contents
+        if ( $_[0]->_context() eq 'macrocontents' ) {
+            return ( '>', '' ) if (s/^\s*>//o);
+            if (s/^<\#\b(macro)\b/$1/o) {
+                $_[0]->{_workingData}->{inTagBrackets} = 1;
+                return ( '<#', '' );
+            }
+            return ( '</#',    '' ) if (s/^\s*<\/\#\b(macro)\b/$1/o);
+            return ( 'macro',  $1 ) if s/^\b(macro)\b//o;
+            return ( 'string', $1 ) if (s/^(.*?)(<(\/?\#\bmacro\b))/$2/so);
+        }
+
+        # delay parsing of assign contents
+        if ( $_[0]->_context() eq 'assign' ) {
+            return ( '>', '' ) if (s/^\s*>//o);
+            if (s/^<\#\b(assign)\b/$1/o) {
+                $_[0]->{_workingData}->{inTagBrackets} = 1;
+                return ( '<#', '' );
+            }
+            return ( '</#',    '' ) if (s/^\s*<\/\#\b(assign)\b/$1/o);
+            return ( 'assign', $1 ) if s/^\b(assign)\b//o;
+            return ( 'string', $1 ) if (s/^(.*?)(<(\/?\#\bassign\b))/$2/so);
         }
 
         # tags
 
         if ( $_[0]->{_workingData}->{inTagBrackets} ) {
-            return ( '--',     $1 ) if s/^(--)//;
-            return ( 'assign', $1 ) if s/^\b(assign)\b//;
-            return ( 'list',   $1 ) if s/^\b(list)\b//;
-            return ( 'if',     $1 ) if s/^\b(if)\b//;
-            return ( '_if_',   $1 ) if (s/^\b(_if_)\b//);
-            return ( 'ftl',    $1 ) if (s/^\b(ftl)\b//);
+            return ( '--',     $1 ) if s/^(--)//o;
+            return ( 'assign', $1 ) if s/^\b(assign)\b//o;
+            return ( 'macro',  $1 ) if s/^\b(macro)\b//o;
+            return ( 'list',   $1 ) if s/^\b(list)\b//o;
+            return ( 'if',     $1 ) if s/^\b(if)\b//o;
+            return ( '_if_',   $1 ) if (s/^\b(_if_)\b//o);
+            return ( 'ftl',    $1 ) if (s/^\b(ftl)\b//o);
+            return ( 'dump',   $1 ) if (s/^\b(dump)\b//o);
         }
 
-        if ( $_[0]->{_workingData}->{inTagBrackets} && s/^\s*>// ) {
+        if ( $_[0]->{_workingData}->{inTagBrackets} && s/^\s*>//o ) {
             $_[0]->{_workingData}->{inTagBrackets} = 0;
             return ( '>', '' );
         }
-        if (s/^<#//) {
+        if (s/^(<(?:#|@))//o) {
             $_[0]->{_workingData}->{inTagBrackets} = 1;
-            return ( '<#', '' );
+            return ( $1, '' );
         }
-        if (s/^<\/#//) {
+        if (s/^(<\/(?:#|@))//o) {
             $_[0]->{_workingData}->{inTagBrackets} = 1;
-            return ( '</#', '' );
+            return ( $1, '' );
         }
 
-        return ( 'as', $1 ) if s/^\s*\b(as)\b//;
+        return ( 'as', $1 ) if s/^\s*\b(as)\b//o;
 
         # variables
         if ( !$isInsideTag ) {
-            return ( '${', '' ) if (s/^\$\{//);
-            return ( '}',  '' ) if (s/^\}//);
+            return ( '${', '' ) if (s/^\$\{//o);
+            return ( '}',  '' ) if (s/^\}//o);
         }
 
         if (   $_[0]->_context() eq 'tagParams'
@@ -1364,74 +1615,72 @@ s/^\b(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\b\s*/
             || $_[0]->_context() eq 'listParams'
             || $_[0]->_context() eq 'assignment' )
         {
-            $_ =~ s/^[[:space:]]*//;
+            $_ =~ s/^[[:space:]]*//o;
             return ( 'NUMBER', $1 )
-              if (s/^(\d+)(\.\.)\s*/$2/)
+              if (s/^(\d+)(\.\.)\s*/$2/o)
               ;   # with array access - prevent that first dot is seen as number
-            return ( '.vars',  $1 ) if (s/^(\.vars)\s*//);
-            return ( '..',     $1 ) if (s/^(\.\.)\s*//);
-            return ( '.',      $1 ) if (s/^(\.)\s*//);
-            return ( '+',      $1 ) if (s/^(\+)\s*//);
-            return ( '-',      $1 ) if (s/^(\-)\s*//);
-            return ( '*',      $1 ) if (s/^(\*)\s*//);
-            return ( '/',      $1 ) if (s/^(\/)\s*//);
-            return ( '%',      $1 ) if (s/^(%)\s*//);
-            return ( '?',      $1 ) if (s/^(\?)\s*//);
-            return ( 'true',   $1 ) if (s/^(\"*true\"*)\s*//);
-            return ( 'false',  $1 ) if (s/^(\"*false\"*)\s*//);
-            return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//);
+            return ( '.vars',  $1 ) if (s/^(\.vars)\s*//o);
+            return ( '..',     $1 ) if (s/^(\.\.)\s*//o);
+            return ( '.',      $1 ) if (s/^(\.)\s*//o);
+            return ( '+',      $1 ) if (s/^(\+)\s*//o);
+            return ( '-',      $1 ) if (s/^(\-)\s*//o);
+            return ( '*',      $1 ) if (s/^(\*)\s*//o);
+            return ( '/',      $1 ) if (s/^(\/)\s*//o);
+            return ( '%',      $1 ) if (s/^(%)\s*//o);
+            return ( '?',      $1 ) if (s/^(\?)\s*//o);
+            return ( 'true',   $1 ) if (s/^(\"*true\"*)\s*//o);
+            return ( 'false',  $1 ) if (s/^(\"*false\"*)\s*//o);
+            return ( 'NUMBER', $1 ) if (s/^$PATTERN_NUMBER//o);
 
             # string operations
             return ( $1, $1 )
-              if (
-s/^\b(word_list|upper_case|uncap_first|substring|string|replace|lower_case|length|xhtml|html|eval|capitalize|cap_first)\b\s*//
-              );
+              if ( s/^$PATTERN_STRING_OP\s*//o );
 
             # sequence operations
             return ( $1, $1 )
-              if (
-s/^(sort_by|sort|size|seq_index_of|seq_contains|reverse|last|join|first)\s*//
-              );
+              if ( s/^$PATTERN_SEQUENCE_OP\s*//o );
 
             # other strings
             return ( 'string', _interpolateEscapes($1) )
-              if (s/^$PATTERN_PRESERVE_QUOTES//);
+              if (s/^$PATTERN_PRESERVE_QUOTES//o);
 
             if (   $_[0]->_context() eq 'variableParams'
                 || $_[0]->_context() eq 'listParams' )
             {
-                return ( 'r',        $1 ) if (s/^\b(r)\b//);
-                return ( '!',        $1 ) if (s/^(!)\s*//);
-                return ( 'DATA_KEY', $1 ) if (s/^(\w+)//);
+                return ( 'r',        $1 ) if (s/^\b(r)\b//o);
+                return ( '!',        $1 ) if (s/^(!)\s*//o);
+                return ( 'DATA_KEY', $1 ) if (s/^(\w+)//o);
             }
             if ( $_[0]->_context() eq 'assignment' ) {
-                return ( 'VAR', $1 ) if (s/^(\w+)//);
-                return ( '=',   $1 ) if (s/^(\=)\s*//);
+                return ( 'DATA_KEY', $1 ) if (s/^(\w+)//o);
+                return ( '=',        $1 ) if (s/^(\=)\s*//o);
             }
             if ( $_[0]->_context() eq 'tagParams' ) {
-                return ( 'string', $1 ) if (s/^(\w+)//);
+                return ( 'string', $1 ) if (s/^(\w+)\s*//o);
             }
-            return ( '=', $1 ) if (s/^(\=)\s*//);
-            return ( '[', $1 ) if (s/^(\[)\s*//);
-            return ( ']', $1 ) if (s/^(\])\s*//);
-            return ( '(', $1 ) if (s/^(\()\s*//);
-            return ( ')', $1 ) if (s/^(\))\s*//);
-            return ( '{', $1 ) if (s/^(\{)\s*//);
-            return ( '}', $1 ) if (s/^(\})//);
-            return ( ':', $1 ) if (s/^(:)\s*//);
-            return ( ',', $1 ) if (s/^(,)\s*//);
+            return ( '=', $1 ) if (s/^(\=)\s*//o);
+            return ( '[', $1 ) if (s/^(\[)\s*//o);
+            return ( ']', $1 ) if (s/^(\])\s*//o);
+            return ( '(', $1 ) if (s/^(\()\s*//o);
+            return ( ')', $1 ) if (s/^(\))\s*//o);
+            return ( '{', $1 ) if (s/^(\{)\s*//o);
+            return ( '}', $1 ) if (s/^(\})//o);
+            return ( ':', $1 ) if (s/^(:)\s*//o);
+            return ( ',', $1 ) if (s/^(,)\s*//o);
         }
 
         if ($isInsideTag) {
-            return ( 'string', $1 ) if (s/^(.*?)(-->|<\#|<\/\#)/$2/s);
+            return ( 'string', $1 ) if (s/^(.*?)(-->|<\#|<\/\#)/$2/so);
         }
         else {
+            return ( 'string', $1 )
+              if (s/^(.*?)(<\#|<\@|\$\{)/$2/so);
 
             return ( 'string', $1 )
-              if (s/^(.*?)(<#|\$\{)/$2/s);
+              if (s/^(\w+)(\>)/$2/so);
 
             return ( 'string', $1 )
-              if (s/^(.*)$//s);
+              if (s/^(.*)$//so);
         }
     }
 }
@@ -1447,20 +1696,53 @@ sub _error {
 }
 
 sub _parse {
-    #my ( $this, $input ) = @_;
+
+    #my ( $this, $input, $dataRef ) = @_;
 
     return '' if !defined $_[1] || $_[1] eq '';
 
-    print STDERR "_parse:input=$_[1]\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+    print STDERR "_parse:input=$_[1]\n"
+      if ( $_[0]->{debug} || $_[0]->{debugLevel} );
 
     my $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
 
-    $parser->{debugLevel}    = $_[0]->{debugLevel};
-    $parser->{debug}         = $_[0]->{debug};
-    $parser->{_data}          = $_[0]->{_data};
-    $parser->{_workingData}   = $_[0]->{_workingData};
+    $parser->{debugLevel} = $_[0]->{debugLevel};
+    $parser->{debug}      = $_[0]->{debug};
+    $parser->{_data}      = $_[0]->{_data};
+    if ( keys %{ $_[2] } ) {
+        my %data = ( %{ $_[2] }, %{ $parser->{_data} } );
+        $parser->{_data} = \%data;
+    }
+    $parser->{_workingData} = $_[0]->{_workingData};
 
-    return $parser->parse( $_[1] );
+    return $parser->_nestedParse( $_[1] );
+}
+
+sub _nestedParse {
+
+    #my ( $this, $input, $dataRef ) = @_;
+
+    return '' if !defined $_[1] || $_[1] eq '';
+
+    $_[0]->_init( $_[2] );
+
+    $recursiveLevel++;
+    return $_[1] if ( $recursiveLevel > $MAX_RECURSIVE_LEVEL );
+
+    $_[0]->_increaseDataScope();
+
+    $_[0]->YYData->{DATA} = $_[1];
+    my $result = $_[0]->YYParse(
+        yylex   => \&_lexer,
+        yyerror => \&_error,
+        yydebug => $_[0]->{debugLevel}
+    );
+    $result = '' if !defined $result;
+
+    $recursiveLevel--;
+    $_[0]->_decreaseDataScope();
+
+    return $result;
 }
 
 =pod
@@ -1508,18 +1790,25 @@ The output will be:
 =cut
 
 sub parse {
+
     #my ( $this, $input, $dataRef ) = @_;
 
     return '' if !defined $_[1] || $_[1] eq '';
-    
+
+    $recursiveLevel++;
+    return $_[1] if ( $recursiveLevel > $MAX_RECURSIVE_LEVEL );
+
     $_[0]->_init( $_[2] );
-    $_[0]->{debug} ||= 0;
+    $_[0]->_increaseDataScope();
+    $_[0]->{debug}      ||= 0;
     $_[0]->{debugLevel} ||= 0;
 
-	use Data::Dumper;
-    print STDERR "parse -- input data=" . Dumper($_[0]->{_data}) . "\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
-    
-    print STDERR "parse:input=$_[1]\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+    use Data::Dumper;
+
+#print STDERR "parse -- input data=" . Dumper($_[0]->{_data}) . "\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    print STDERR "parse:input=$_[1]\n"
+      if ( $_[0]->{debug} || $_[0]->{debugLevel} );
 
     $_[0]->YYData->{DATA} = $_[1];
     my $result = $_[0]->YYParse(
@@ -1528,15 +1817,25 @@ sub parse {
         yydebug => $_[0]->{debugLevel}
     );
     $result = '' if !defined $result;
-	
-	# remove expansion protection
+
+    # remove expansion protection
     $result =~ s/<fmg_nop>//go;
-    
-    print STDERR "parse:result=$result\n" if ( $_[0]->{debug} || $_[0]->{debugLevel} );
+
+    print STDERR "parse:result=$result\n"
+      if ( $_[0]->{debug} || $_[0]->{debugLevel} );
 
     undef $_[0]->{_workingData};
+
+    # pass data to Parse::Yapp parser
     $_[0]->{data} = $_[0]->{_data};
-    undef $_[0]->{_data};
+
+    $recursiveLevel--;
+    $_[0]->_decreaseDataScope();
+
+    #delete $_[0]->{_data};
+    delete $_[0]->{_workingData};
+    $dataKeyId = 0;
+
     return $result;
 }
 
@@ -1561,7 +1860,9 @@ Bit Value    Outputs
 sub setDebugLevel {
     my ( $this, $debug, $debugLevel ) = @_;
 
-	$this->{debug} = $debug;
-	$this->{debugLevel} = $debugLevel;
+    $this->{debug}      = $debug;
+    $this->{debugLevel} = $debugLevel;
 }
+
+
 

@@ -206,11 +206,10 @@ See Sandbox.FreeMarkerPluginExample for an elaborate example.
    * global
    * local
    * setting
-   * macro, nested, return
+   * nested, return
    * function, return
    * flush
    * stop
-   * ftl
    * t, lt, rt
    * nt
    * attempt, recover
@@ -367,6 +366,7 @@ One line description, required for extensions repository catalog.
 |  Release: | %$RELEASE% |
 |  Version: | %$VERSION% |
 |  Change&nbsp;History: | <!-- versions below in reverse order -->&nbsp; |
+|  04 Dec 2010 | 1.1.0: Many improvements to the parser. Support for =macro= tag. |
 |  03 Oct 2010 | 1.0.1: Fixed bug where a variable name that contained a string operation command resulted in a syntax error. | 
 |  12 May 2010 | 1.0.0: First release |
 |  Home: | http://foswiki.org/Extensions/%TOPIC% |

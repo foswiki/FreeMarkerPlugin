@@ -368,6 +368,32 @@ sub test_hash_with_lists {
     $this->assert( $result eq $expected );
 }
 
+=pod
+
+=cut
+
+sub test_hash_with_lists2 {
+    my ($this) = @_;
+
+	my $template;
+	my $parser;
+	my $data;
+	my $result;
+	my $expected;
+	
+    $template = "{ users: [ 'Joe',    'Fred' ], admins: [ 'Julia',  'Kate' ], children: [ 'Mickey', 'Rooney' ]}";
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::AttributeParser();
+	$parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug} = $PARSER_DEBUG;
+    $data = $parser->parse($template);
+	
+    $result   = $data->{admins}->[1];
+    $expected = 'Kate';
+
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
 
 # HELPER FUNCTIONS
 

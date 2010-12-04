@@ -29,6 +29,125 @@ my $DEFAULT_TEST_DATA = {
     ],
     count => -5.013
 };
+
+my $COMPLEX_TEST_DATA = {
+	pageSummary => {
+		memberList => {
+			'showHideSummaries' => {
+				'hideSummaries' => 'Hide summaries',
+				'showSummaries' => 'Show summaries'
+			},
+			'showHideTypeInfo' => {
+				'hideTypeInfo' => 'Hide type info',
+				'showTypeInfo' => 'Show type info'
+			},
+			memberSummaryPart => [
+				{
+				  '-private' => '0',
+				  'item' => [
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '(inObjects:Array = null)',
+												'summary' => 'Creates a new array enumerator. ',
+												'-member' => ''
+											  },
+								'id' => 'ArrayEnumerator',
+								'title' => 'ArrayEnumerator'
+							  }
+							],
+				  'title' => 'Constructor'
+				},
+				{
+				  '-private' => '0',
+				  'item' => [
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '(inObjects:Array) : void',
+												'summary' => 'Stores a pointer to array inArray.',
+												'-member' => ''
+											  },
+								'id' => 'setObjects',
+								'title' => 'setObjects'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '() : *',
+												'summary' => 'Retrieves the object from the array at the current pointer location.',
+												'-member' => ''
+											  },
+								'id' => 'getCurrentObject',
+								'title' => 'getCurrentObject'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '() : *',
+												'summary' => 'Increments the location pointer by one and returns the object from the array at that location.',
+												'-member' => ''
+											  },
+								'id' => 'getNextObject',
+								'title' => 'getNextObject'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '() : Array',
+												'summary' => 'Retrieves all objects.',
+												'-member' => ''
+											  },
+								'id' => 'getAllObjects',
+								'title' => 'getAllObjects'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '() : void',
+												'summary' => 'Puts the enumerator just before the first array item. ',
+												'-member' => ''
+											  },
+								'id' => 'reset',
+								'title' => 'reset'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '() : int',
+												'-member' => ''
+											  },
+								'id' => 'getCurrentLocation',
+								'title' => 'getCurrentLocation'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '(inLocation:int) : void',
+												'summary' => 'Sets the location pointer to a new position.',
+												'-member' => ''
+											  },
+								'id' => 'setCurrentLocation',
+								'title' => 'setCurrentLocation'
+							  },
+							  {
+								'-private' => '',
+								'typeInfo' => {
+												'typeInfoString' => '(inObject:Object) : void',
+												'summary' => 'Sets the location pointer to the location (in the array) of inObject.',
+												'-member' => ''
+											  },
+								'id' => 'setCurrentObject',
+								'title' => 'setCurrentObject'
+							  }
+							],
+				  'title' => 'Instance methods'
+				}
+			  ]
+		}
+	}
+};
+
 $DEFAULT_TEST_DATA->{book}->{author}->{name} = 'Shakespeare';
 
 sub new {
@@ -189,26 +308,16 @@ sub test_tag_assign_block {
 
     $template = '
 <#assign x>blo</#assign>
+${x}
 ';
     $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;
     $parsed               = $parser->parse($template);
 
-    $result   = $parser->{data}->{'x'};
-    $expected = '
-blo
-';
-
-    _trimSpaces($result);
-    _trimSpaces($expected);
-
-    print("RES=$result.\n")   if $DEBUG;
-    print("EXP=$expected.\n") if $DEBUG;
-    $this->assert( $result eq $expected );
-
     $result   = $parsed;
     $expected = '
+blo
 ';
 
     _trimSpaces($result);
@@ -268,13 +377,14 @@ sub test_tag_assign_expression_array_1 {
 
     $template = '
 <#assign seq = ["winter", "spring", "summer", "autumn"]>
+${seq[0]}
 ';
     $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;
     $parsed               = $parser->parse($template);
 
-    $result   = $parser->{data}->{'seq'}[0];
+    $result   = $parser->data('seq')->[0];
     $expected = 'winter';
 
     print("RES=$result.\n")   if $DEBUG;
@@ -309,7 +419,7 @@ sub test_tag_assign_expression_array_2 {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $result   = $parser->{data}->{'seq'}[1][0];
     $expected = 10;
@@ -317,7 +427,7 @@ sub test_tag_assign_expression_array_2 {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $result   = $parser->{data}->{'seq'}[1][2][2];
     $expected = 'c';
@@ -325,7 +435,7 @@ sub test_tag_assign_expression_array_2 {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $result   = $parser->{data}->{'seq'}[2];
     $expected = 'whatnot';
@@ -389,7 +499,7 @@ sub test_tag_assign_expression_number {
     $parser->{debug}      = $PARSER_DEBUG;
     $parsed               = $parser->parse($template);
 
-    $result   = $parser->{data}->{'n'};
+    $result   = $parser->data('n');
     $expected = '-9.99';
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
@@ -439,26 +549,26 @@ sub test_tag_assign_hash_manipulation {
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;
     $parsed               = $parser->parse($template);
-    $result               = $parser->{data}->{ages}->{Joe};
+    $result               = $parser->data()->{ages}->{Joe};
     $expected             = '23';
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#assign ages = {"Joe":23, "Fred":25}>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;
     $parsed               = $parser->parse($template);
-    $result               = $parser->{data}->{ages}->{Fred};
+    $result               = $parser->data()->{ages}->{Fred};
     $expected             = '25';
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template =
       '<#assign ages = {"Joe":23, "Fred":25} + {"Joe":30, "Julia":18}>';
@@ -466,7 +576,7 @@ sub test_tag_assign_hash_manipulation {
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;
     $parsed               = $parser->parse($template);
-    $result               = $parser->{data}->{ages}->{Joe};
+    $result               = $parser->data()->{ages}->{Joe};
     $expected             = '30';
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
@@ -497,7 +607,7 @@ sub test_tag_assign_calculation {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#assign test = 10><#assign test = test * 2>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -540,7 +650,7 @@ test = test + 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $result   = $parser->{data}->{test};
     $expected = 2;
@@ -1164,7 +1274,7 @@ sub test_substitute_calculation_statement {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${-10}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1232,6 +1342,364 @@ sub test_substitute_calculation_modulo {
 
 =pod
 
+Not implemented and not tested:
+- #nested
+- #return
+- passing calculations: <@test foo="a" bar="b" baaz=5*5-2/>  
+- text in between tags:
+	<@do_thrice ; x>
+		${x} Anything.
+	</@do_thrice>
+- assignments:
+	<@repeat count=4 ; c, halfc, last>
+	
+=cut
+
+sub test_tag_macro {
+    my ($this) = @_;
+
+    my $template;
+    my $tmpData;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+
+	# ------------------------------------------------
+	# no call
+    $template = '<#macro greet>
+Hello Joe!
+</#macro>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = '';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+	# ------------------------------------------------
+	# call short notation
+    $template = '<#macro greet>
+Hello Joe!
+</#macro>
+<@greet/>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = 'Hello Joe!
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    # ------------------------------------------------
+	# params
+    $template = '<#macro greet name call>
+${call} ${name}!
+</#macro>
+<@greet call="Hello" name="Mary"/>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = 'Hello Mary!
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    # ------------------------------------------------
+	# in list
+    $template = '<#macro season name>
+The time of year: ${name}
+</#macro>
+<#list ["winter", "spring", "summer", "autumn"] as x><@season name="${x}"/></#list>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = 'The time of year: winter
+The time of year: spring
+The time of year: summer
+The time of year: autumn
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+	# ------------------------------------------------
+	# in list 2
+	$tmpData = {
+		seasons => [
+					{
+						name => "winter",
+						month => "December"
+					},
+					{
+						name => "spring",
+						month => "March"
+					},
+					{
+						name => "summer",
+						month => "June"
+					},
+					{
+						name => "autumn",
+						month => "September"
+					}
+					]
+	};
+	#print "QQQ season 1=" . $tmpData->{seasons}->[0]->{name} . "\n";
+
+    $template = '<#macro season name>
+The time of year: ${name}
+</#macro>
+<#assign showList>
+<ul>
+<#list seasons as x>
+<li>
+<@season name="${x.name}"/>
+</li>
+</#list>
+</ul>
+</#assign>
+${showList}';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $tmpData );
+
+    $result   = $parsed;
+    $expected = '<ul>
+<li>
+The time of year: winter
+</li>
+<li>
+The time of year: spring
+</li>
+<li>
+The time of year: summer
+</li>
+<li>
+The time of year: autumn
+</li>
+</ul>
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    # ------------------------------------------------
+	# in list with if
+    $template = '<#ftl encoding="UTF-8" strip_whitespace="false"><#macro people name len>
+<#if len gt 3>
+Long name:${name}
+<#else>
+Short name:${name}
+</#if>
+</#macro>
+<#list ["Bo", "Ann", "Mary", "Roger"] as x><@people name="${x}" len="${x?length}"/></#list>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = '
+
+Short name:Bo
+Short name:Ann
+Long name:Mary
+Long name:Roger';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+	# ------------------------------------------------
+	# pass list
+	$template = '<#macro mylist title items>
+${title?cap_first}:
+<#list items as x>
+- ${x?cap_first}
+</#list>
+</#macro>
+<@mylist items=["mouse", "elephant", "python"] title="Animals"/>';
+	
+	$parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+	$parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+	$parser->{debug}      = $PARSER_DEBUG;
+	$parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+	$result   = $parsed;
+	$expected = 'Animals:
+- Mouse
+- Elephant
+- Python
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    # ------------------------------------------------
+	# pass list param
+	$tmpData = {
+		animals => ["mouse", "elephant", "python"]
+	};
+	
+	$template = '<#macro mylist title items>
+${title?cap_first}:
+<#list items as x>
+- ${x?cap_first}
+</#list>
+</#macro>
+<@mylist items=animals title="Animals"/>';
+	
+	$parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+	$parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+	$parser->{debug}      = $PARSER_DEBUG;
+	$parsed = $parser->parse( $template, $tmpData );
+
+	$result   = $parsed;
+	$expected = 'Animals:
+- Mouse
+- Elephant
+- Python
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+	# ------------------------------------------------
+	# pass list param nested
+	$tmpData = {
+		animals => {
+			mammals => ["mouse", "elephant", "cat"]
+		}
+	};
+	
+	$template = '<#macro mylist title items>
+${title?cap_first}:
+<#list items as x>
+- ${x?cap_first}
+</#list>
+</#macro>
+<@mylist items=animals.mammals title="Animals"/>';
+	
+	$parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+	$parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+	$parser->{debug}      = $PARSER_DEBUG;
+	$parsed = $parser->parse( $template, $tmpData );
+
+	$result   = $parsed;
+	$expected = 'Animals:
+- Mouse
+- Elephant
+- Cat
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+	# ------------------------------------------------
+	# pass hash param nested
+	$tmpData = {
+		data => {
+			field => {
+				title => "Whole lotta luck",
+				date => 1969
+			}
+		}
+	};
+	
+	$template = '<#macro myhash d>
+title:${d.title}
+</#macro>
+<@myhash d=data.field/>';
+	
+	$parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+	$parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+	$parser->{debug}      = $PARSER_DEBUG;
+	$parsed = $parser->parse( $template, $tmpData );
+
+	$result   = $parsed;
+	$expected = 'title:Whole lotta luck
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    
+=not
+    # ------------------------------------------------
+	# invalid param
+	$tmpData = {
+		data => {
+			field => {
+				title => "Whole lotta luck",
+				date => 1969
+			}
+		}
+	};
+	
+	$template = '<#macro myhash d>
+title:${d.title}
+</#macro>
+<@myhash dunno=data.field/>';
+	
+	$parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+	$parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+	$parser->{debug}      = $PARSER_DEBUG;
+	$parsed = $parser->parse( $template, $tmpData );
+
+	$result   = $parsed;
+	$expected = '';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    
+    # ------------------------------------------------
+	# call
+    $template = '<#macro greet>
+Hello Joe!
+</#macro>
+<@greet></@greet>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = 'Hello Joe!
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+=cut
+}
+
+=pod
+
+Not implemented: <#break>
+
 =cut
 
 sub test_tag_list {
@@ -1243,6 +1711,22 @@ sub test_tag_list {
     my $result;
     my $expected;
 
+=pod
+	$template = '<#list ["winter", "spring", "summer", "autumn"] as x></#list>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = '';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+=cut
+
+	# ---
     $template = '<ul>
 <#list ["winter", "spring", "summer", "autumn"] as x>
 <li>season = <b>${x}</b></li>
@@ -1261,6 +1745,74 @@ sub test_tag_list {
 <li>season = <b>summer</b></li>
 <li>season = <b>autumn</b></li>
 </ul>';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
+=pod
+
+=cut
+
+sub test_tag_list_nested {
+    my ($this) = @_;
+
+	my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+    
+    $template = '<#list ["winter", "spring", "summer", "autumn"] as x><#list 1..3 as y>
+- ${x}, ${y}
+</#list></#list>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = '- winter, 1
+- winter, 2
+- winter, 3
+- spring, 1
+- spring, 2
+- spring, 3
+- summer, 1
+- summer, 2
+- summer, 3
+- autumn, 1
+- autumn, 2
+- autumn, 3
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ----------
+    
+    $template = '<#list ["winter", "spring", "summer", "autumn"] as x>
+<#if x??>
+<#list 1..3 as y>
+<#if y??>
+- ${x}, ${y}
+</#if>
+</#list>
+</#if>
+</#list>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed = $parser->parse( $template, $DEFAULT_TEST_DATA );
+
+    $result   = $parsed;
+    $expected = '- winter, 1- winter, 2- winter, 3
+- spring, 1- spring, 2- spring, 3
+- summer, 1- summer, 2- summer, 3
+- autumn, 1- autumn, 2- autumn, 3
+';
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
@@ -1318,7 +1870,7 @@ sub test_tag_list_access {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     my $gorilla;
     $gorilla->{skin} = 'hairy';
@@ -1378,7 +1930,7 @@ sub test_tag_list_data_key {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list zoo as animal>
 <span>${animal.skin}</span>
@@ -1407,6 +1959,76 @@ sub test_tag_list_data_key {
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
+    
+    my $tmpData = {
+		nestedlist => 
+        	{
+	            people => {
+	            	ages => [ 10, 20, 30 ]
+	            }
+	        }
+	};
+
+    $template = '<#list nestedlist.people.ages as age>
+- ${age}
+</#list>';
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '- 10
+- 20
+- 30
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
+sub test_list_data_keys_at_different_levels {
+    my ($this) = @_;
+
+    my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+
+    my $tmpData = {
+    	title => 'Bedtime Stories',
+    	chapters => [
+    		{
+    			title => 'One',
+    			page => 3
+    		},
+    		{
+    			title => 'Two',
+    			page => 12
+    		},
+    		{
+    			title => 'Three',
+    			page => 19
+    		}
+    	]
+    };
+
+    $template = '<#list chapters as chapter>
+- ${chapter.title}
+</#list>';
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '- One
+- Two
+- Three
+';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
 }
 
 =pod
@@ -1515,7 +2137,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[0] as letter>
    * ${letter}
@@ -1531,7 +2153,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[0..2] as letter>
    * ${letter}
@@ -1549,7 +2171,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[2..0] as letter>
    * ${letter}
@@ -1567,7 +2189,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[3..] as letter>
    * ${letter}
@@ -1586,7 +2208,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     my $smallData = { letters => ['a'] };
     $template = '<#list letters[0..] as letter>
@@ -1603,7 +2225,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[..3] as letter>
    * ${letter}
@@ -1622,7 +2244,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[..3][1] as letter>
    * ${letter}
@@ -1638,7 +2260,7 @@ sub test_tag_list_array_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list letters[3..6][1] as letter>
    * ${letter}
@@ -1684,7 +2306,7 @@ sub test_tag_list_automatic_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list ..2 as n>
    * ${n}
@@ -1702,7 +2324,7 @@ sub test_tag_list_automatic_sequence {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '<#list 5..3 as n>
    * ${n}
@@ -1787,7 +2409,13 @@ sub test_tag_if {
 
     my $tmpData = {
         x     => 1,
-        color => 'green'
+        color => 'green',
+        nested => 
+			{
+				name => 'mary',
+				ages => [ 10, 20, 30 ],
+				empty => []
+			}
     };
 
     my $template;
@@ -1796,7 +2424,21 @@ sub test_tag_if {
     my $result;
     my $expected;
 
-    # ---
+	# ------------------------------------------------
+    # ==
+    $template = '<#if x == 1>
+</#if>';
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
     # ==
     $template = '<#if x == 1>
 x is 1
@@ -1811,7 +2453,22 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
+    # ==
+    $template = '<#if nested.ages[0] == 10>
+ok
+</#if>';
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = 'ok';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    # ------------------------------------------------
     # eq
     $template = '<#if x eq 1>
 x is 1
@@ -1826,7 +2483,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # >=
     $template = '<#if x >= 1>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1839,7 +2496,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # &gt;
     $template = '<#if x &gt; 0>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1852,7 +2509,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # gt
     $template = '<#if x gt 0>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1865,7 +2522,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ( > )
     $template = '<#if (x > 0)>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1878,7 +2535,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # <
     $template = '<#if x < 2>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1891,7 +2548,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # lt
     $template = '<#if x lt 2>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1904,7 +2561,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # &lt;
     $template = '<#if x &lt; 2>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1917,7 +2574,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # <=
     $template = '<#if x <= 1>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1930,7 +2587,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # lte
     $template = '<#if x lte 1>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1943,7 +2600,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # &lte;
     $template = '<#if x &lte; 1>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1956,7 +2613,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # !=
     $template = '<#if x != 0>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1969,7 +2626,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ne
     $template = '<#if x ne 0>1</#if>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1982,7 +2639,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # = string
     $template = "<#if color = 'green'>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -1995,7 +2652,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # != string
     $template = "<#if color != 'red'>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2008,7 +2665,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # != string
     $template = "A<#if color = 'red'>1</#if>B";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2021,7 +2678,7 @@ x is 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ??
     $template = '<#if x??>
 x exists
@@ -2036,7 +2693,7 @@ x exists
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ??
     $template = '<#if q??>
 q exists
@@ -2051,25 +2708,39 @@ q exists
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ?? with empty array: returns exists
-    my @animals = undef;
-    $template = '<#if x??>
-x exists
+    $template = '<#if nested.empty??>
+empty array exists
 </#if>';
     $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;
-    $parsed   = $parser->parse( $template, { x => \@animals, } );
+    $parsed   = $parser->parse( $template, $tmpData );
     $result   = $parsed;
-    $expected = 'x exists';
+    $expected = 'empty array exists';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
+    # ?? with array
+    $template = '<#if nested.ages??>
+array exists
+</#if>';
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = 'array exists';
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ?? with no array: returns missing
-    $template = '<#if x??>
+    $template = '<#if doesnotexist??>
 x exists
 </#if>';
     $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2082,7 +2753,7 @@ x exists
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # ?? ,2 conditions
     $template = '<#if xx?? || yy??>
 yes
@@ -2102,6 +2773,21 @@ yes
     print("RES=$result.\n")   if $DEBUG;
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
+
+    # --
+    # ??, nested
+    $template = '<#if nested.name??>
+ok
+</#if>';
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = 'ok';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
 }
 
 =pod
@@ -2116,6 +2802,9 @@ sub test_tag_if_logic {
         color  => 'green',
         male   => 1,
         female => 0,
+        nested => {
+        	x => 1
+        }
     };
 
     my $template;
@@ -2124,7 +2813,7 @@ sub test_tag_if_logic {
     my $result;
     my $expected;
 
-    # ---
+    # ------------------------------------------------
     # &&
     $template = "<#if x == 1 && color = 'green'>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2137,7 +2826,85 @@ sub test_tag_if_logic {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+	# ------------------------------------------------
+    # &&
+    $template = "<#if x?? && male??>1</#if>";
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '1';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
+    # && with non existing var
+    $template = "<#if x?? && y??>1<#else>0</#if>";
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '0';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
+    # && with existing nested var
+    $template = "<#if x?? && nested.x??>1<#else>0</#if>";
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '1';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
+    # && with non existing nested var
+    $template = "<#if x?? && nested.y??>1<#else>0</#if>";
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '0';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
+    # ?? && !??
+    $template = "<#if x?? && !nested.y??>1<#else>0</#if>";
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '1';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    # ------------------------------------------------
+    # ?? && !??
+    $template = "<#if x?? && !nested.x??>1<#else>0</#if>";
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '0';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+
+    # ------------------------------------------------
     # !
     $template = "<#if male>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2150,7 +2917,7 @@ sub test_tag_if_logic {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # !
     $template = "<#if !female>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2175,7 +2942,7 @@ sub test_tag_if_logic {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # multiple &&
     $template = "<#if x && male && color = 'green'>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2188,7 +2955,7 @@ sub test_tag_if_logic {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # multiple &&
     $template = "<#if x && male && color = 'red'>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2201,7 +2968,7 @@ sub test_tag_if_logic {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # && ||
     $template = "<#if (x && male || female) && color = 'green'>1</#if>";
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2407,7 +3174,7 @@ x is not 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $tmpData = {
         x  => 1,
@@ -2439,7 +3206,7 @@ x is not 1
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $tmpData = {
         a => 0,
@@ -2602,7 +3369,7 @@ sub test_builtin_string_substring {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"abc"?substring(2)}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2615,7 +3382,7 @@ sub test_builtin_string_substring {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"abc"?substring(3)}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2628,7 +3395,7 @@ sub test_builtin_string_substring {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"abc"?substring(0, 0)}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2641,7 +3408,7 @@ sub test_builtin_string_substring {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"abc"?substring(0, 1)}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2654,7 +3421,7 @@ sub test_builtin_string_substring {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"abcdef"?substring(2,3)}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2692,7 +3459,7 @@ sub test_builtin_string_cap_first {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"GreEN mouse"?cap_first}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2705,7 +3472,7 @@ sub test_builtin_string_cap_first {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"- green mouse"?cap_first}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2743,7 +3510,7 @@ sub test_builtin_string_uncap_first {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"GreEN mouse"?uncap_first}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2756,7 +3523,7 @@ sub test_builtin_string_uncap_first {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"- Green mouse"?uncap_first}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2794,7 +3561,7 @@ sub test_builtin_string_capitalize {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"greEN mouse"?capitalize}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2832,7 +3599,7 @@ sub test_builtin_string_eval {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${"x"?eval}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2845,7 +3612,7 @@ sub test_builtin_string_eval {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${("info" + x)?eval}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2864,7 +3631,7 @@ sub test_builtin_string_eval {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${("info" + y)?eval}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2877,7 +3644,7 @@ sub test_builtin_string_eval {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${("info" + "_" + col.name)?eval}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -2997,7 +3764,7 @@ sub test_builtin_string_replace {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${story?replace("good, morning", "\'Guten Morgen\'")}';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
@@ -3156,7 +3923,7 @@ ${s}';
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
     # inside if
 
     $template = '<#if zoo?size == 4>TRUE</#if>';
@@ -3200,7 +3967,7 @@ ${l?join(", ")}';
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${zoo?join(", ")}';
     my @values = ( 'gorilla', 'zebra', 'elephant', 'shark' );
@@ -3215,14 +3982,16 @@ ${l?join(", ")}';
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = '${animals.sea?join(", ")}';
     my @seaAnimals  = ( 'shark',   'lobster', 'starfish' );
     my @landAnimals = ( 'gorilla', 'zebra',   'elephant' );
     $tmpData = {
-        sea  => \@seaAnimals,
-        land => \@landAnimals,
+    	animals => {
+	        sea  => \@seaAnimals,
+    	    land => \@landAnimals
+    	}
     };
     $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
@@ -3475,7 +4244,7 @@ sub test_call_function {
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 
-    # ---
+    # ------------------------------------------------
 
     $template = "\${doFunc('\${zoo.elephant[1]}')}";
     my $animals = {};
@@ -3522,6 +4291,74 @@ sub test_special_variables_vars {
     $this->assert( $result eq $expected );
 }
 
+# CUSTOM VARIABLES
+
+sub test_custom_dump {
+    my ($this) = @_;
+
+    my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+    my $tmpData = {
+    	data => {
+			colors => [
+				"red",  "green",  "black", "gray",
+				"blue", "purple", "brown", "yellow"
+			],
+			selectedcolor => "green"
+		}
+    };
+
+    $template = '<#dump data />';
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = "\$VAR1 = {
+          'selectedcolor' => 'green',
+          'colors' => [
+                        'red',
+                        'green',
+                        'black',
+                        'gray',
+                        'blue',
+                        'purple',
+                        'brown',
+                        'yellow'
+                      ]
+        };
+";
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+    
+    #----------
+    
+    $template = '<#dump data.colors />';
+    $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = "\$VAR1 = [
+          'red',
+          'green',
+          'black',
+          'gray',
+          'blue',
+          'purple',
+          'brown',
+          'yellow'
+        ];
+";
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
 # COMBINED TESTS
 
 sub test_combined_1 {
@@ -3553,6 +4390,10 @@ this is the next step
     print("EXP=$expected.\n") if $DEBUG;
     $this->assert( $result eq $expected );
 }
+
+=pod
+
+=cut
 
 sub test_combined_2 {
     my ($this) = @_;
@@ -3599,12 +4440,329 @@ sub test_combined_2 {
     $this->assert( $result eq $expected );
 }
 
+=pod
+
+=cut
+
+sub test_complex_1 {
+    my ($this) = @_;
+
+    my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+
+    $template = '${pageSummary.memberList.memberSummaryPart[0].title}';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $COMPLEX_TEST_DATA );
+    $result   = $parsed;
+    $expected = 'Constructor';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
+=pod
+
+=cut
+
+sub test_complex_2 {
+    my ($this) = @_;
+    
+    my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+    
+    # ---
+    $template = '<#if pageSummary.memberList.memberSummaryPart??>
+<div class="memberList">
+<#list pageSummary.memberList.memberSummaryPart as part>
+<div class="memberSummaryPart">
+<#list part.item as item>
+- ${item.title}
+</#list>
+</div>
+</#list>
+</div>
+</#if>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $COMPLEX_TEST_DATA );
+    $result   = $parsed;
+    $expected = '<div class="memberList">
+<div class="memberSummaryPart">
+- ArrayEnumerator
+</div>
+<div class="memberSummaryPart">
+- setObjects
+- getCurrentObject
+- getNextObject
+- getAllObjects
+- reset
+- getCurrentLocation
+- setCurrentLocation
+- setCurrentObject
+</div>
+</div>';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
+=pod
+
+=cut
+
+sub test_complex_3 {
+    my ($this) = @_;
+    
+    my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+    
+    # ---
+    $template = '<#macro iconButton class icon label>
+<span class="${class}"><a href="#"><span class="icon">${icon}</span><span class="label">${label}</span></a></span>
+</#macro>
+<#if pageSummary?? && pageSummary.memberList??>
+<div class="docNav">
+<ul>
+<#if pageSummary.memberList.showHideTypeInfo??>
+	<li>
+		<@iconButton class="typeInfoHide" icon="&times;" label="${pageSummary.memberList.showHideTypeInfo.hideTypeInfo}" />
+		<@iconButton class="typeInfoShow" icon="+" label="${pageSummary.memberList.showHideTypeInfo.showTypeInfo}" />
+	</li>
+	</#if>
+	<#if pageSummary.memberList.showHideSummaries??>
+	<li>
+		<@iconButton class="summariesHide" icon="&times;" label="${pageSummary.memberList.showHideSummaries.hideSummaries}" />
+		<@iconButton class="summariesShow" icon="+" label="${pageSummary.memberList.showHideSummaries.showSummaries}" />
+	</li>
+</#if>
+</ul>
+<div class="clear"></div>
+</div>
+<#if pageSummary.memberList.memberSummaryPart??>
+<div class="memberList">
+<#list pageSummary.memberList.memberSummaryPart as part>
+<div class="memberSummaryPart">
+<#list part.item as item>
+<#if item.typeInfo.summary??>
+<ul class="summary">
+	<li>${item.typeInfo.summary}</li>
+</ul>
+</#if>
+</#list>
+</div>
+</#list>
+</div>
+</#if>
+</#if>';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $COMPLEX_TEST_DATA );
+    $result   = $parsed;
+    $expected = '<div class="docNav">
+<ul>
+	<li>
+		<span class="typeInfoHide"><a href="#"><span class="icon">&times;</span><span class="label">Hide type info</span></a></span>
+		<span class="typeInfoShow"><a href="#"><span class="icon">+</span><span class="label">Show type info</span></a></span>
+	</li>		<li>
+		<span class="summariesHide"><a href="#"><span class="icon">&times;</span><span class="label">Hide summaries</span></a></span>
+		<span class="summariesShow"><a href="#"><span class="icon">+</span><span class="label">Show summaries</span></a></span>
+	</li></ul>
+<div class="clear"></div>
+</div>
+<div class="memberList">
+<div class="memberSummaryPart">
+<ul class="summary">
+	<li>Creates a new array enumerator. </li>
+</ul></div>
+<div class="memberSummaryPart">
+<ul class="summary">
+	<li>Stores a pointer to array inArray.</li>
+</ul><ul class="summary">
+	<li>Retrieves the object from the array at the current pointer location.</li>
+</ul><ul class="summary">
+	<li>Increments the location pointer by one and returns the object from the array at that location.</li>
+</ul><ul class="summary">
+	<li>Retrieves all objects.</li>
+</ul><ul class="summary">
+	<li>Puts the enumerator just before the first array item. </li>
+</ul><ul class="summary">
+	<li>Sets the location pointer to a new position.</li>
+</ul><ul class="summary">
+	<li>Sets the location pointer to the location (in the array) of inObject.</li>
+</ul></div>
+</div>';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+
+=pod
+
+=cut
+
+sub test_recursive {
+    my ($this) = @_;
+    
+    my $template;
+    my $parser;
+    my $parsed, my $data;
+    my $result;
+    my $expected;
+    
+    my $tmpData = {
+    	tree =>
+    	{
+    		name => 'root',
+    		child =>
+    		{
+    			name => 'child 1',
+    			child => 
+    			{
+    				name => 'child 2',
+    				child => 
+    				{
+						name => 'child 3',
+						child => 
+						{
+							name => 'child 5',
+							child =>
+							{
+								name => 'child 6' 
+							}
+						}
+					}
+				}
+    		}
+    	}
+    };
+    
+    $template = '<#macro treeMacro node>
+<#if node.name??>
+- ${node.name}
+</#if>
+<#if node.child??>
+<@treeMacro node=node.child />
+</#if>
+</#macro>
+<@treeMacro node=tree />';
+
+    $parser = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
+    $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
+    $parser->{debug}      = $PARSER_DEBUG;
+    $parsed   = $parser->parse( $template, $tmpData );
+    $result   = $parsed;
+    $expected = '- root- child 1- child 2- child 3- child 5- child 6';
+    print("RES=$result.\n")   if $DEBUG;
+    print("EXP=$expected.\n") if $DEBUG;
+    $this->assert( $result eq $expected );
+}
+=pod
+sub testest {
+	my ($this) = @_;
+	
+	my $localData = {
+		_keys => []
+	};
+	
+	
+	my $addLocalScope = sub {
+		my $uniqueScopeKey = int(rand(10000000));
+		push (@{$localData->{_keys}}, $uniqueScopeKey);
+	};
+	
+	my $removeLocalScope = sub {
+		my $scopeKey = pop(@{$localData->{_keys}});
+		delete $localData->{$scopeKey};
+	};
+	
+	my $storeLocalData = sub {
+		my ($data) = @_;
+		
+		my $scopeKey = $localData->{_keys}[-1];
+		while (my ($key, $value) = each %{$data}) {
+			$localData->{$scopeKey}->{$key} = $value;
+		}
+	};
+	
+	my $getData = sub {
+		my ($dataKey) = @_;
+		
+		my $data;
+		foreach my $key (reverse @{$localData->{_keys}}) {
+			print "key=$key\n";
+			$data = $localData->{$key}->{$dataKey};
+			last if defined $data;
+		}
+		return $data;
+	};
+	
+	
+	use Data::Dumper;
+	
+	&$addLocalScope();
+	
+	print "addLocalScope\n";
+	print Dumper($localData);
+	
+	my $newData = {
+		color => 'green',
+		shape => 'circle',
+		size => 10
+	};
+	&$storeLocalData($newData);
+	
+	print "storeLocalData\n";
+	print Dumper($localData);
+	
+	&$addLocalScope();
+	
+	print "addLocalScope\n";
+	print Dumper($localData);
+	
+	$newData = {
+		color => 'red',
+		shape => 'square',
+	};
+	&$storeLocalData($newData);
+	
+	print "storeLocalData\n";
+	print Dumper($localData);
+	
+	print "color=" . &$getData('color') . "\n";
+	print "size=" . &$getData('size') . "\n";
+	
+	&$removeLocalScope();
+	
+	print "removeLocalScope\n";
+	print Dumper($localData);
+	print "color=" . &$getData('color') . "\n";
+	print "size=" . &$getData('size') . "\n";
+}
+=cut
+
+
 # HELPER FUNCTIONS
 
 sub _trimSpaces {
 
     #my $parsed = $_[0]
-
+	return if !$_[0];
     $_[0] =~ s/^[[:space:]]+//s;    # trim at start
     $_[0] =~ s/[[:space:]]+$//s;    # trim at end
 }

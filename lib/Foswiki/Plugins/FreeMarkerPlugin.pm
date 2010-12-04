@@ -9,7 +9,7 @@ use Foswiki::Plugins::FreeMarkerPlugin::AttributeParser qw(new parse);
 use Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser qw(new parse);
 
 our $VERSION = '$Rev: 4533 $';
-our $RELEASE           = '1.0.1';
+our $RELEASE           = '1.1.0';
 our $SHORTDESCRIPTION  = '<nop>FreeMarker template parser';
 our $NO_PREFS_IN_TOPIC = 1;
 our $pluginName        = 'FreeMarkerPlugin';
@@ -48,7 +48,7 @@ sub commonTagsHandler {
     #my ($text, $topic, $web, $meta ) = @_;
 
     $_[0] =~
-s/%STARTFREEMARKER{(.*?)}%(.*?)%ENDFREEMARKER%/&_handleTemplate($1, $2, $_[2], $_[1])/ges;
+s/%STARTFREEMARKER{?(.*?)}?%(.*?)%ENDFREEMARKER%/&_handleTemplate($1, $2, $_[2], $_[1])/ges;
 }
 
 =pod
@@ -98,7 +98,19 @@ sub _attributesToData {
 		$value = Foswiki::Func::expandCommonVariables( $value, $topic, $web );
 		
 		$data->{$key} = $parser->parse($value);
-	}	
+	}
+	if ($data->{_DEFAULT}) {
+		foreach my $key ( keys %{$data->{_DEFAULT}} ) {
+			$data->{$key} = $data->{_DEFAULT}->{$key};
+		}
+		delete $data->{_DEFAULT};
+	}
+	
+	if ($debug) {
+		use Data::Dumper;
+		_debug("_attributesToData:\n" . Dumper($data));
+	}
+	
 	return $data;
 }
 
