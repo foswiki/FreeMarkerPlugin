@@ -177,7 +177,7 @@ ${vars[1].color}
 
 
 ---+++ Elaborate example
-See Sandbox.FreeMarkerPluginExample for an elaborate example.
+See Sandbox.FreeMarkerPluginExamples for working examples.
 
 #ImplementedSyntax
 ---+++ Implemented syntax

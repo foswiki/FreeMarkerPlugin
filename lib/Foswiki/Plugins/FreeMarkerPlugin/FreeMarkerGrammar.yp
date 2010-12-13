@@ -507,7 +507,6 @@ tag_dump:				'<#'
 							{ $_[0]->_pushContext('assignment') }
 							data
 							{ $_[0]->_popContext('assignment') }
-							whitespace
 							'/'
 							'>'
 							{
@@ -1670,7 +1669,9 @@ sub _lexer {
         }
 
         if ($isInsideTag) {
-            return ( 'string', $1 ) if (s/^(.*?)(-->|<\#|<\/\#)/$2/so);
+        	if (s/^(.*?)(-->|<\#|<\/\#)/$2/so) {
+	            return ( 'string', $1 );
+	        }
         }
         else {
             return ( 'string', $1 )

@@ -9,7 +9,7 @@ use Foswiki::Plugins::FreeMarkerPlugin::AttributeParser qw(new parse);
 use Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser qw(new parse);
 
 our $VERSION = '$Rev: 4533 $';
-our $RELEASE           = '1.1.0';
+our $RELEASE           = '1.1.1';
 our $SHORTDESCRIPTION  = '<nop>FreeMarker template parser';
 our $NO_PREFS_IN_TOPIC = 1;
 our $pluginName        = 'FreeMarkerPlugin';

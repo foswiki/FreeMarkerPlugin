@@ -4291,9 +4291,9 @@ sub test_special_variables_vars {
     $this->assert( $result eq $expected );
 }
 
-# CUSTOM VARIABLES
+# CUSTOM TAGS
 
-sub test_custom_dump {
+sub test_tag_dump {
     my ($this) = @_;
 
     my $template;
@@ -4311,7 +4311,7 @@ sub test_custom_dump {
 		}
     };
 
-    $template = '<#dump data />';
+    $template = '<#dump data/>';
     $parser   = new Foswiki::Plugins::FreeMarkerPlugin::FreeMarkerParser();
     $parser->{debugLevel} = $PARSER_DEBUG_LEVEL;
     $parser->{debug}      = $PARSER_DEBUG;

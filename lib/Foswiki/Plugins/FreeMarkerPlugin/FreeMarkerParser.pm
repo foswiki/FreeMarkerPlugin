@@ -1104,19 +1104,19 @@ sub new {
 	},
 	{#State 73
 		ACTIONS => {
-			"+" => 126,
-			"==" => 128,
-			"lte" => 127,
-			"!" => 129,
-			"*" => 130,
-			"[" => 131,
-			"lt" => 132,
 			"!=" => 133,
 			"?" => 134,
+			"+" => 126,
 			"gte" => 135,
+			"==" => 128,
+			"lte" => 127,
 			"??" => 136,
+			"!" => 129,
+			"*" => 130,
 			"gt" => 137,
-			"." => 138
+			"[" => 131,
+			"." => 138,
+			"lt" => 132
 		},
 		DEFAULT => -147,
 		GOTOS => {
@@ -2006,11 +2006,7 @@ sub new {
 	},
 	{#State 144
 		ACTIONS => {
-			"whitespace" => 19
-		},
-		DEFAULT => -19,
-		GOTOS => {
-			'whitespace' => 238
+			"/" => 238
 		}
 	},
 	{#State 145
@@ -2847,7 +2843,7 @@ sub new {
 	},
 	{#State 238
 		ACTIONS => {
-			"/" => 314
+			">" => 314
 		}
 	},
 	{#State 239
@@ -3318,16 +3314,14 @@ sub new {
 		DEFAULT => -121
 	},
 	{#State 314
-		ACTIONS => {
-			">" => 334
-		}
+		DEFAULT => -148
 	},
 	{#State 315
 		ACTIONS => {
-			"</#" => 335
+			"</#" => 334
 		},
 		GOTOS => {
-			'tag_close_start' => 336
+			'tag_close_start' => 335
 		}
 	},
 	{#State 316
@@ -3336,15 +3330,15 @@ sub new {
 		},
 		DEFAULT => -19,
 		GOTOS => {
-			'whitespace' => 337
+			'whitespace' => 336
 		}
 	},
 	{#State 317
 		ACTIONS => {
-			"</#" => 335
+			"</#" => 334
 		},
 		GOTOS => {
-			'tag_close_start' => 338
+			'tag_close_start' => 337
 		}
 	},
 	{#State 318
@@ -3353,7 +3347,7 @@ sub new {
 		},
 		DEFAULT => -19,
 		GOTOS => {
-			'whitespace' => 339
+			'whitespace' => 338
 		}
 	},
 	{#State 319
@@ -3361,7 +3355,7 @@ sub new {
 			">" => 173
 		},
 		GOTOS => {
-			'tag_open_end' => 340
+			'tag_open_end' => 339
 		}
 	},
 	{#State 320
@@ -3385,7 +3379,7 @@ sub new {
 			'tag_list' => 6,
 			'tag_if' => 17,
 			'tag_dump' => 18,
-			'content' => 341,
+			'content' => 340,
 			'tag_macro' => 11,
 			'tag_open_start' => 20,
 			'tag_macro_call' => 12,
@@ -3401,7 +3395,7 @@ sub new {
 	},
 	{#State 323
 		ACTIONS => {
-			"]" => 342
+			"]" => 341
 		}
 	},
 	{#State 324
@@ -3409,38 +3403,38 @@ sub new {
 	},
 	{#State 325
 		ACTIONS => {
-			"," => 343
+			"," => 342
 		}
 	},
 	{#State 326
 		ACTIONS => {
-			"," => 344
+			"," => 343
 		}
 	},
 	{#State 327
 		ACTIONS => {
-			")" => 345
+			")" => 344
 		}
 	},
 	{#State 328
 		ACTIONS => {
-			"," => 346,
-			")" => 347
+			"," => 345,
+			")" => 346
 		}
 	},
 	{#State 329
 		ACTIONS => {
-			")" => 348
+			")" => 347
 		}
 	},
 	{#State 330
 		ACTIONS => {
-			")" => 349
+			")" => 348
 		}
 	},
 	{#State 331
 		ACTIONS => {
-			")" => 350
+			")" => 349
 		}
 	},
 	{#State 332
@@ -3466,50 +3460,52 @@ sub new {
 			">" => 173
 		},
 		GOTOS => {
-			'tag_open_end' => 351
+			'tag_open_end' => 350
 		}
 	},
 	{#State 334
-		DEFAULT => -148
-	},
-	{#State 335
 		DEFAULT => -101
 	},
-	{#State 336
+	{#State 335
 		ACTIONS => {
-			"if" => 352
+			"if" => 351
 		}
 	},
-	{#State 337
+	{#State 336
 		DEFAULT => -103
 	},
-	{#State 338
+	{#State 337
 		ACTIONS => {
-			"assign" => 354
+			"assign" => 353
 		},
 		GOTOS => {
-			'directive_assign_end' => 353
+			'directive_assign_end' => 352
 		}
 	},
-	{#State 339
+	{#State 338
 		DEFAULT => -100
 	},
-	{#State 340
+	{#State 339
 		DEFAULT => -130,
 		GOTOS => {
-			'@14-8' => 355
+			'@14-8' => 354
+		}
+	},
+	{#State 340
+		ACTIONS => {
+			"</#" => 334
+		},
+		GOTOS => {
+			'tag_close_start' => 355
 		}
 	},
 	{#State 341
-		ACTIONS => {
-			"</#" => 335
-		},
-		GOTOS => {
-			'tag_close_start' => 356
-		}
+		DEFAULT => -165
 	},
 	{#State 342
-		DEFAULT => -165
+		ACTIONS => {
+			'string' => 356
+		}
 	},
 	{#State 343
 		ACTIONS => {
@@ -3517,32 +3513,35 @@ sub new {
 		}
 	},
 	{#State 344
-		ACTIONS => {
-			'string' => 358
-		}
-	},
-	{#State 345
 		DEFAULT => -175
 	},
-	{#State 346
+	{#State 345
 		ACTIONS => {
-			'NUMBER' => 359
+			'NUMBER' => 358
 		}
 	},
-	{#State 347
+	{#State 346
 		DEFAULT => -189
 	},
-	{#State 348
+	{#State 347
 		DEFAULT => -170
 	},
-	{#State 349
+	{#State 348
 		DEFAULT => -174
 	},
-	{#State 350
+	{#State 349
 		DEFAULT => -173
 	},
-	{#State 351
+	{#State 350
 		DEFAULT => -127
+	},
+	{#State 351
+		ACTIONS => {
+			">" => 283
+		},
+		GOTOS => {
+			'tag_close_end' => 359
+		}
 	},
 	{#State 352
 		ACTIONS => {
@@ -3553,17 +3552,9 @@ sub new {
 		}
 	},
 	{#State 353
-		ACTIONS => {
-			">" => 283
-		},
-		GOTOS => {
-			'tag_close_end' => 361
-		}
-	},
-	{#State 354
 		DEFAULT => -110
 	},
-	{#State 355
+	{#State 354
 		ACTIONS => {
 			'variable_verbatim' => 15,
 			'string' => 8,
@@ -3584,7 +3575,7 @@ sub new {
 			'tag_list' => 6,
 			'tag_if' => 17,
 			'tag_dump' => 18,
-			'content' => 362,
+			'content' => 361,
 			'tag_macro' => 11,
 			'tag_open_start' => 20,
 			'tag_macro_call' => 12,
@@ -3592,12 +3583,17 @@ sub new {
 			'tag_comment' => 14
 		}
 	},
-	{#State 356
+	{#State 355
 		ACTIONS => {
-			"macro" => 364
+			"macro" => 363
 		},
 		GOTOS => {
-			'directive_macro_end' => 363
+			'directive_macro_end' => 362
+		}
+	},
+	{#State 356
+		ACTIONS => {
+			")" => 364
 		}
 	},
 	{#State 357
@@ -3611,61 +3607,56 @@ sub new {
 		}
 	},
 	{#State 359
-		ACTIONS => {
-			")" => 367
-		}
-	},
-	{#State 360
 		DEFAULT => -134
 	},
-	{#State 361
+	{#State 360
 		DEFAULT => -108
+	},
+	{#State 361
+		ACTIONS => {
+			"</#" => 334
+		},
+		GOTOS => {
+			'tag_close_start' => 367
+		}
 	},
 	{#State 362
 		ACTIONS => {
-			"</#" => 335
+			">" => 283
 		},
 		GOTOS => {
-			'tag_close_start' => 368
+			'tag_close_end' => 368
 		}
 	},
 	{#State 363
-		ACTIONS => {
-			">" => 283
-		},
-		GOTOS => {
-			'tag_close_end' => 369
-		}
-	},
-	{#State 364
 		DEFAULT => -115
 	},
-	{#State 365
+	{#State 364
 		DEFAULT => -188
 	},
-	{#State 366
+	{#State 365
 		DEFAULT => -186
 	},
-	{#State 367
+	{#State 366
 		DEFAULT => -190
 	},
-	{#State 368
+	{#State 367
 		ACTIONS => {
-			"list" => 370
+			"list" => 369
 		}
 	},
-	{#State 369
+	{#State 368
 		DEFAULT => -113
 	},
-	{#State 370
+	{#State 369
 		ACTIONS => {
 			">" => 283
 		},
 		GOTOS => {
-			'tag_close_end' => 371
+			'tag_close_end' => 370
 		}
 	},
-	{#State 371
+	{#State 370
 		DEFAULT => -131
 	}
 ],
@@ -4463,9 +4454,9 @@ sub
 { $_[0]->_popContext('assignment') }
 	],
 	[#Rule 148
-		 'tag_dump', 8,
+		 'tag_dump', 7,
 sub
-#line 513 "FreeMarkerGrammar.yp"
+#line 512 "FreeMarkerGrammar.yp"
 {
 								use Data::Dumper;
 								return Dumper($_[4]);
@@ -4474,13 +4465,13 @@ sub
 	[#Rule 149
 		 '@24-1', 0,
 sub
-#line 520 "FreeMarkerGrammar.yp"
+#line 519 "FreeMarkerGrammar.yp"
 { $_[0]->_pushContext('variableParams') }
 	],
 	[#Rule 150
 		 'variable', 4,
 sub
-#line 523 "FreeMarkerGrammar.yp"
+#line 522 "FreeMarkerGrammar.yp"
 {
 								$_[0]->_popContext('variableParams');
 								undef $_[0]->{_workingData}->{tmpData};
@@ -4490,7 +4481,7 @@ sub
 	[#Rule 151
 		 'data', 1,
 sub
-#line 531 "FreeMarkerGrammar.yp"
+#line 530 "FreeMarkerGrammar.yp"
 {
 								$_[0]->_value($_[1])
 							}
@@ -4498,7 +4489,7 @@ sub
 	[#Rule 152
 		 'data', 1,
 sub
-#line 536 "FreeMarkerGrammar.yp"
+#line 535 "FreeMarkerGrammar.yp"
 { $_[0]->data() }
 	],
 	[#Rule 153
@@ -4522,7 +4513,7 @@ sub
 	[#Rule 159
 		 'type_op', 3,
 sub
-#line 553 "FreeMarkerGrammar.yp"
+#line 552 "FreeMarkerGrammar.yp"
 {
 								my $d = $_[0]->{_workingData}->{tmpData};
 								$d = $_[0]->data() if !defined $d;
@@ -4537,19 +4528,19 @@ sub
 	[#Rule 160
 		 'type_op', 3,
 sub
-#line 565 "FreeMarkerGrammar.yp"
+#line 564 "FreeMarkerGrammar.yp"
 { $_[2] }
 	],
 	[#Rule 161
 		 'type_op', 3,
 sub
-#line 568 "FreeMarkerGrammar.yp"
+#line 567 "FreeMarkerGrammar.yp"
 { $_[1] * $_[3] }
 	],
 	[#Rule 162
 		 'type_op', 3,
 sub
-#line 572 "FreeMarkerGrammar.yp"
+#line 571 "FreeMarkerGrammar.yp"
 {
 								if ( UNIVERSAL::isa( $_[1], "ARRAY" ) && UNIVERSAL::isa( $_[3], "ARRAY" ) ) {
 									my @list = ( @{$_[1]}, @{$_[3]} );
@@ -4563,13 +4554,13 @@ sub
 	[#Rule 163
 		 'type_op', 3,
 sub
-#line 583 "FreeMarkerGrammar.yp"
+#line 582 "FreeMarkerGrammar.yp"
 { undef }
 	],
 	[#Rule 164
 		 'type_op', 4,
 sub
-#line 586 "FreeMarkerGrammar.yp"
+#line 585 "FreeMarkerGrammar.yp"
 {
 								if ( $_[0]->_context() eq 'listParams' ) {
 									my $value = $_[1]->[$_[3]];
@@ -4585,7 +4576,7 @@ sub
 	[#Rule 165
 		 'type_op', 6,
 sub
-#line 599 "FreeMarkerGrammar.yp"
+#line 598 "FreeMarkerGrammar.yp"
 {
 								my @list;
 								if ( $_[3] > $_[5] ) {
@@ -4600,7 +4591,7 @@ sub
 	[#Rule 166
 		 'type_op', 5,
 sub
-#line 611 "FreeMarkerGrammar.yp"
+#line 610 "FreeMarkerGrammar.yp"
 {
 								my $maxlength = scalar @{$_[1]} - 1;
 								my @list = @{$_[1]}[$_[3]..$maxlength];
@@ -4610,7 +4601,7 @@ sub
 	[#Rule 167
 		 'type_op', 5,
 sub
-#line 618 "FreeMarkerGrammar.yp"
+#line 617 "FreeMarkerGrammar.yp"
 {
 								my @list = @{$_[1]}[0..$_[4]];
 								return \@list;
@@ -4619,7 +4610,7 @@ sub
 	[#Rule 168
 		 'type_op', 4,
 sub
-#line 624 "FreeMarkerGrammar.yp"
+#line 623 "FreeMarkerGrammar.yp"
 {
 								my $d = $_[0]->{_workingData}->{tmpData};
 								$d = $_[0]->data() if !defined $d;
@@ -4632,7 +4623,7 @@ sub
 	[#Rule 169
 		 'type_op', 4,
 sub
-#line 634 "FreeMarkerGrammar.yp"
+#line 633 "FreeMarkerGrammar.yp"
 {
 								my $d = $_[0]->{_workingData}->{tmpData};
 								$d = $_[0]->data() if !defined $d;
@@ -4644,13 +4635,13 @@ sub
 	[#Rule 170
 		 'type_op', 6,
 sub
-#line 643 "FreeMarkerGrammar.yp"
+#line 642 "FreeMarkerGrammar.yp"
 { join ( _unquote($_[5]), @{$_[1]} ) }
 	],
 	[#Rule 171
 		 'type_op', 3,
 sub
-#line 646 "FreeMarkerGrammar.yp"
+#line 645 "FreeMarkerGrammar.yp"
 {
 								my $sorted = _sort( $_[1] );
 								return $sorted;
@@ -4659,13 +4650,13 @@ sub
 	[#Rule 172
 		 'type_op', 3,
 sub
-#line 652 "FreeMarkerGrammar.yp"
+#line 651 "FreeMarkerGrammar.yp"
 { scalar @{$_[1]} }
 	],
 	[#Rule 173
 		 'type_op', 6,
 sub
-#line 655 "FreeMarkerGrammar.yp"
+#line 654 "FreeMarkerGrammar.yp"
 {
 								my $key = _unquote($_[5]);								
 								my $isStringSort = 1;
@@ -4687,7 +4678,7 @@ sub
 	[#Rule 174
 		 'type_op', 6,
 sub
-#line 674 "FreeMarkerGrammar.yp"
+#line 673 "FreeMarkerGrammar.yp"
 {
 								# differentiate between numbers and strings
 								# this is not fast
@@ -4701,7 +4692,7 @@ sub
 	[#Rule 175
 		 'type_op', 6,
 sub
-#line 685 "FreeMarkerGrammar.yp"
+#line 684 "FreeMarkerGrammar.yp"
 {
 								# differentiate between numbers and strings
 								# this is not fast
@@ -4714,7 +4705,7 @@ sub
 	[#Rule 176
 		 'type_op', 3,
 sub
-#line 695 "FreeMarkerGrammar.yp"
+#line 694 "FreeMarkerGrammar.yp"
 {
 								my @reversed = reverse @{$_[1]};
 								return \@reversed;
@@ -4723,103 +4714,103 @@ sub
 	[#Rule 177
 		 'type_op', 3,
 sub
-#line 701 "FreeMarkerGrammar.yp"
+#line 700 "FreeMarkerGrammar.yp"
 { @{$_[1]}[-1] }
 	],
 	[#Rule 178
 		 'type_op', 3,
 sub
-#line 704 "FreeMarkerGrammar.yp"
+#line 703 "FreeMarkerGrammar.yp"
 { @{$_[1]}[0] }
 	],
 	[#Rule 179
 		 'type_op', 3,
 sub
-#line 708 "FreeMarkerGrammar.yp"
+#line 707 "FreeMarkerGrammar.yp"
 { _capfirst( $_[1] ) }
 	],
 	[#Rule 180
 		 'type_op', 3,
 sub
-#line 711 "FreeMarkerGrammar.yp"
+#line 710 "FreeMarkerGrammar.yp"
 { _capitalize( $_[1] ) }
 	],
 	[#Rule 181
 		 'type_op', 3,
 sub
-#line 714 "FreeMarkerGrammar.yp"
+#line 713 "FreeMarkerGrammar.yp"
 { $_[0]->_parse('${' . $_[1] . '}') }
 	],
 	[#Rule 182
 		 'type_op', 3,
 sub
-#line 717 "FreeMarkerGrammar.yp"
+#line 716 "FreeMarkerGrammar.yp"
 { _html($_[1]) }
 	],
 	[#Rule 183
 		 'type_op', 3,
 sub
-#line 720 "FreeMarkerGrammar.yp"
+#line 719 "FreeMarkerGrammar.yp"
 { _xhtml($_[1]) }
 	],
 	[#Rule 184
 		 'type_op', 3,
 sub
-#line 723 "FreeMarkerGrammar.yp"
+#line 722 "FreeMarkerGrammar.yp"
 { return defined $_[1] ? length( $_[1] ) : 0 }
 	],
 	[#Rule 185
 		 'type_op', 3,
 sub
-#line 726 "FreeMarkerGrammar.yp"
+#line 725 "FreeMarkerGrammar.yp"
 { lc $_[1] }
 	],
 	[#Rule 186
 		 'type_op', 8,
 sub
-#line 729 "FreeMarkerGrammar.yp"
+#line 728 "FreeMarkerGrammar.yp"
 { _replace( $_[1], _unquote($_[5]), _unquote($_[7]) ) }
 	],
 	[#Rule 187
 		 'type_op', 3,
 sub
-#line 732 "FreeMarkerGrammar.yp"
+#line 731 "FreeMarkerGrammar.yp"
 { $_[1] }
 	],
 	[#Rule 188
 		 'type_op', 8,
 sub
-#line 735 "FreeMarkerGrammar.yp"
+#line 734 "FreeMarkerGrammar.yp"
 { $_[1] ? _unquote($_[5]) : _unquote($_[7]) }
 	],
 	[#Rule 189
 		 'type_op', 6,
 sub
-#line 738 "FreeMarkerGrammar.yp"
+#line 737 "FreeMarkerGrammar.yp"
 { _substring( $_[1], $_[5] ) }
 	],
 	[#Rule 190
 		 'type_op', 8,
 sub
-#line 741 "FreeMarkerGrammar.yp"
+#line 740 "FreeMarkerGrammar.yp"
 { _substring( $_[1], $_[5], $_[7] ) }
 	],
 	[#Rule 191
 		 'type_op', 3,
 sub
-#line 744 "FreeMarkerGrammar.yp"
+#line 743 "FreeMarkerGrammar.yp"
 { _uncapfirst( $_[1] ) }
 	],
 	[#Rule 192
 		 'type_op', 3,
 sub
-#line 747 "FreeMarkerGrammar.yp"
+#line 746 "FreeMarkerGrammar.yp"
 { uc $_[1] }
 	],
 	[#Rule 193
 		 'type_op', 3,
 sub
-#line 750 "FreeMarkerGrammar.yp"
+#line 749 "FreeMarkerGrammar.yp"
 {
 								my @list = _wordlist( $_[1] );
 								return \@list;
@@ -4828,13 +4819,13 @@ sub
 	[#Rule 194
 		 'type_op', 3,
 sub
-#line 756 "FreeMarkerGrammar.yp"
+#line 755 "FreeMarkerGrammar.yp"
 { _unquote($_[3]) }
 	],
 	[#Rule 195
 		 'type_op', 3,
 sub
-#line 759 "FreeMarkerGrammar.yp"
+#line 758 "FreeMarkerGrammar.yp"
 { 
 								return 0 if !defined $_[1];
 								if ($_[1] && _isString($_[3])) {
@@ -4847,7 +4838,7 @@ sub
 	[#Rule 196
 		 'type_op', 3,
 sub
-#line 769 "FreeMarkerGrammar.yp"
+#line 768 "FreeMarkerGrammar.yp"
 { 
 								if (_isString($_[3])) {
 									return $_[1] ne $_[3];
@@ -4859,7 +4850,7 @@ sub
 	[#Rule 197
 		 'type_op', 2,
 sub
-#line 778 "FreeMarkerGrammar.yp"
+#line 777 "FreeMarkerGrammar.yp"
 { 
 								return defined $_[1];
 							}
@@ -4867,37 +4858,37 @@ sub
 	[#Rule 198
 		 'type_op', 3,
 sub
-#line 783 "FreeMarkerGrammar.yp"
+#line 782 "FreeMarkerGrammar.yp"
 { return 0 if !defined $_[1]; $_[1] > $_[3] }
 	],
 	[#Rule 199
 		 'type_op', 3,
 sub
-#line 786 "FreeMarkerGrammar.yp"
+#line 785 "FreeMarkerGrammar.yp"
 { return 0 if !defined $_[1]; $_[1] >= $_[3] }
 	],
 	[#Rule 200
 		 'type_op', 3,
 sub
-#line 789 "FreeMarkerGrammar.yp"
+#line 788 "FreeMarkerGrammar.yp"
 { return 0 if !defined $_[1]; $_[1] < $_[3] }
 	],
 	[#Rule 201
 		 'type_op', 3,
 sub
-#line 792 "FreeMarkerGrammar.yp"
+#line 791 "FreeMarkerGrammar.yp"
 { return 0 if !defined $_[1]; $_[1] <= $_[3] }
 	],
 	[#Rule 202
 		 'string_op', 1,
 sub
-#line 796 "FreeMarkerGrammar.yp"
+#line 795 "FreeMarkerGrammar.yp"
 { _unquote( $_[1] ) }
 	],
 	[#Rule 203
 		 'string_op', 3,
 sub
-#line 799 "FreeMarkerGrammar.yp"
+#line 798 "FreeMarkerGrammar.yp"
 {
 								if (defined $_[3]) {
 									return $_[1] . $_[3];
@@ -4909,19 +4900,19 @@ sub
 	[#Rule 204
 		 'string_op', 2,
 sub
-#line 808 "FreeMarkerGrammar.yp"
+#line 807 "FreeMarkerGrammar.yp"
 { _protect(_unquote( $_[2] )) }
 	],
 	[#Rule 205
 		 'hash', 3,
 sub
-#line 812 "FreeMarkerGrammar.yp"
+#line 811 "FreeMarkerGrammar.yp"
 { $_[2] }
 	],
 	[#Rule 206
 		 'hashes', 1,
 sub
-#line 815 "FreeMarkerGrammar.yp"
+#line 814 "FreeMarkerGrammar.yp"
 {
 								$_[0]->{_workingData}->{'hashes'} ||= ();
 								push @{$_[0]->{_workingData}->{'hashes'}}, $_[1];
@@ -4930,7 +4921,7 @@ sub
 	[#Rule 207
 		 'hashes', 3,
 sub
-#line 821 "FreeMarkerGrammar.yp"
+#line 820 "FreeMarkerGrammar.yp"
 {	
 								$_[0]->{_workingData}->{'hashes'} ||= ();
 								push @{$_[0]->{_workingData}->{'hashes'}}, $_[3];
@@ -4942,7 +4933,7 @@ sub
 	[#Rule 209
 		 'hash_op', 3,
 sub
-#line 829 "FreeMarkerGrammar.yp"
+#line 828 "FreeMarkerGrammar.yp"
 {
 								my %merged = (%{$_[1]}, %{$_[3]});
 								return \%merged;
@@ -4951,7 +4942,7 @@ sub
 	[#Rule 210
 		 'hashvalue', 3,
 sub
-#line 835 "FreeMarkerGrammar.yp"
+#line 834 "FreeMarkerGrammar.yp"
 {
 								my $local = {
 									_unquote($_[1]) => _unquote($_[3])
@@ -4965,7 +4956,7 @@ sub
 	[#Rule 212
 		 'hashvalues', 3,
 sub
-#line 845 "FreeMarkerGrammar.yp"
+#line 844 "FreeMarkerGrammar.yp"
 {
 								my %merged = (%{$_[1]}, %{$_[3]});
 								return \%merged;
@@ -4974,7 +4965,7 @@ sub
 	[#Rule 213
 		 'array_op', 3,
 sub
-#line 852 "FreeMarkerGrammar.yp"
+#line 851 "FreeMarkerGrammar.yp"
 {
 								my @list = @{$_[0]->{_workingData}->{'hashes'}};
 								undef $_[0]->{_workingData}->{'hashes'};
@@ -4984,13 +4975,13 @@ sub
 	[#Rule 214
 		 'array_op', 1,
 sub
-#line 859 "FreeMarkerGrammar.yp"
+#line 858 "FreeMarkerGrammar.yp"
 { _toList($_[1]) }
 	],
 	[#Rule 215
 		 'array_op', 3,
 sub
-#line 862 "FreeMarkerGrammar.yp"
+#line 861 "FreeMarkerGrammar.yp"
 {
 								my @list;
 								if ( $_[1] > $_[3] ) {
@@ -5005,7 +4996,7 @@ sub
 	[#Rule 216
 		 'array_op', 2,
 sub
-#line 874 "FreeMarkerGrammar.yp"
+#line 873 "FreeMarkerGrammar.yp"
 {
 								my @list = (0..$_[2]);
 								return \@list;
@@ -5017,13 +5008,13 @@ sub
 	[#Rule 218
 		 'array_pos', 1,
 sub
-#line 883 "FreeMarkerGrammar.yp"
+#line 882 "FreeMarkerGrammar.yp"
 { $_[0]->_value($_[1]) }
 	],
 	[#Rule 219
 		 'func_op', 4,
 sub
-#line 887 "FreeMarkerGrammar.yp"
+#line 886 "FreeMarkerGrammar.yp"
 {
 								my $function = $_[0]->_value($_[1]);
 								return undef if !$function;
@@ -5040,7 +5031,7 @@ sub
     bless($self,$class);
 }
 
-#line 898 "FreeMarkerGrammar.yp"
+#line 897 "FreeMarkerGrammar.yp"
 
 
 
@@ -5816,7 +5807,9 @@ sub _lexer {
         }
 
         if ($isInsideTag) {
-            return ( 'string', $1 ) if (s/^(.*?)(-->|<\#|<\/\#)/$2/so);
+        	if (s/^(.*?)(-->|<\#|<\/\#)/$2/so) {
+	            return ( 'string', $1 );
+	        }
         }
         else {
             return ( 'string', $1 )
